@@ -1,0 +1,176 @@
+---
+title: "test_html"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Population description
+We begin with a description of the population itself.
+
+```{r}
+dwell_tbl = dwell %>% 
+  filter(visit_start_date > "2018-01-01" & visit_start_date <"2018-05-01") %>%
+  filter(days_since_appearance > 0 & days_since_appearance < 23) %>%
+  ft_string_indexer(input_col='pioneer_id', output_col='id') #%>%
+#  select(-pioneer_id) 
+
+dwell_stages_tbl = dwell_tbl %>% 
+  mutate(stage = case_when(
+    days_since_appearance == 0 ~ 'enrollment',
+    days_since_appearance > 0 & days_since_appearance < 8 ~ 'pretreatment',
+    days_since_appearance >= 8 & days_since_appearance < 15 ~ 'treatment',
+    days_since_appearance >=15 & days_since_appearance < 23 ~ 'posttreatment',
+    days_since_appearance >=23 ~ 'after'
+  )) %>%
+  sdf_register('dwell_stages_tbl')
+
+tbl_cache(sc, 'dwell_stages_tbl')
+```
+
+
+```{r}
+
+```
+
+
+## Usage characteristics
+
+```{r}
+
+visitdate_df = dwell_stages_tbl %>% 
+  group_by(id, visit_start_date, stage) %>%
+  count %>% collect
+
+startdate_df = dwell_stages_tbl %>% 
+  group_by(id, days_since_appearance, stage) %>%
+  count %>% collect
+
+ggplot(visitdate_df, aes(
+  x=visit_start_date,
+  y=n,
+  color=stage
+)) +
+  geom_bar(stat='identity', width=.5) +
+  guides(color=F) +
+  theme_bw()
+
+ggplot(startdate_df, aes(
+  x=days_since_appearance,
+  y=n,
+  color=stage
+)) +
+  geom_bar(stat='identity', width=.5)+
+  guides(color=F) +
+  theme_bw()
+
+ggplot(startdate_df, aes(
+  x=days_since_appearance,
+  y=log(n),
+  group=days_since_appearance,
+  color=stage
+)) +
+  geom_boxplot() +
+  guides(color=F) +
+  theme_bw()
+```
+
+What does this look like 
+```{r}
+
+ecdf_activedays_df = dwell_stages_tbl %>%
+  group_by(days_since_appearance, id) %>%
+  count %>%
+  filter(n>0)%>%
+  collect
+
+ecdf_activedays_df = dwell_stages_tbl %>%
+  group_by(visit_start_date, id) %>%
+  count %>%
+  filter(n>0)%>%
+  group_by(id)%>%
+  count %>%
+  collect
+
+#ecdf_activedays_df %>% filter(id==959)
+
+ggplot(ecdf_activedays_df, aes(nn)) + geom_histogram(binwidth=1) + theme_bw()
+ggplot(ecdf_activedays_df, aes(nn)) + stat_ecdf(geom='step') + theme_bw()
+
+```
+
+
+## Pageviews
+```{r}
+durations = dwell %>%
+  #filter(visit_start_date > "2018-01-01" & visit_start_date <"2018-05-01") %>%
+  #filter(days_since_appearance > 0 & days_since_appearance < 23) %>%
+  group_by(branch, visit_start_date) %>%
+  summarise(total=sum(total_dwell_time, na.rm=T)) %>%
+  collect
+
+ggplot(durations, aes(
+  x=visit_start_date,
+  y=total,
+  fill=pid)) +
+  geom_bar(aes(color=pid), stat='identity',position='dodge') +
+  facet_wrap(~branch)
+
+days_active = joined_dwell %>%
+  group_by(pioneer_id,visit_start_date) %>%
+  count %>%
+  filter(n>0) %>%
+  ungroup %>%
+  group_by(pioneer_id) %>%
+  count %>%
+  collect
+
+days_active_unres = dwell %>%
+  group_by(pioneer_id,visit_start_date) %>%
+  count %>%
+  filter(n>0) %>%
+  ungroup %>%
+  group_by(pioneer_id) %>%
+  count %>%
+  collect
+
+days_active_cens = days_active_unres %>% filter(!pioneer_id %in% days_active$pioneer_id) %>% collect
+
+days_active$type='survey'
+days_active_unres$type='all'
+days_active_cens$type='censored'
+active_days = rbind(days_active, days_active_unres,days_active_cens)
+
+ggplot(active_days, aes(
+  x=nn, fill=type)) + stat_ecdf(aes(color=type))
+
+```
+
+
+## Dwell, idle, and active time
+
+## Self report
+
+### Demographics: Partisan ID, Age, Gender
+
+### Browsing patterns against self report
+
+# Analysis
+
+## Scored domains
+
+## Distribution of visits across scored domains
+
+## 
+
+
+```{r cars}
+summary(cars)
+```
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+

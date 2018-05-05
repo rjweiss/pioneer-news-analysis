@@ -1,25 +1,25 @@
-library(jsonlite)
-library(stringr)
-library(fuzzyjoin)
-
-bias_json = 'https://raw.githubusercontent.com/mozilla/pioneer-study-online-news-2/master/extension/bias-domains.json'
-whois_json = 'https://raw.githubusercontent.com/mozilla/pioneer-study-online-news-2/master/extension/whois-domains.json'
-
-bias_scores = fromJSON(bias_json)
-whois_scores = fromJSON(whois_json)
-bias_scores$domain = str_replace(bias_scores$domain, 'www.','')
-
-domains = dwell %>% group_by(domain) %>% count %>% collect
-sum(domains$domain %in% bias_scores$domain)
-
-scored_domains = stringdist_inner_join(bias_scores, domains, by='domain', max_dist=0.5)
-names(scored_domains) = c('domain', 'score','domain2','n')
-sdf_copy_to(sc, scored_domains)
-tbl_cache(sc, 'scored_domains')
-
-scored_dwell = dwell %>% inner_join(scored_domains, copy=T)
-sdf_register(scored_dwell, 'scored_dwell_tbl')
-tbl_cache(sc, 'scored_dwell_tbl')
+# library(jsonlite)
+# library(stringr)
+# library(fuzzyjoin)
+# 
+# bias_json = 'https://raw.githubusercontent.com/mozilla/pioneer-study-online-news-2/master/extension/bias-domains.json'
+# whois_json = 'https://raw.githubusercontent.com/mozilla/pioneer-study-online-news-2/master/extension/whois-domains.json'
+# 
+# bias_scores = fromJSON(bias_json)
+# whois_scores = fromJSON(whois_json)
+# bias_scores$domain = str_replace(bias_scores$domain, 'www.','')
+# 
+# domains = dwell %>% group_by(domain) %>% count %>% collect
+# sum(domains$domain %in% bias_scores$domain)
+# 
+# scored_domains = stringdist_inner_join(bias_scores, domains, by='domain', max_dist=0.5)
+# names(scored_domains) = c('domain', 'score','domain2','n')
+# sdf_copy_to(sc, scored_domains)
+# tbl_cache(sc, 'scored_domains')
+# 
+# scored_dwell = dwell %>% inner_join(scored_domains, copy=T)
+# sdf_register(scored_dwell, 'scored_dwell_tbl')
+# tbl_cache(sc, 'scored_dwell_tbl')
 
 
 # haves = domains[domains$domain %in% bias_scores$domain,]
