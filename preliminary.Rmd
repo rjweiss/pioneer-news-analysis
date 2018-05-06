@@ -5,11 +5,15 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+source('~/analyses/rweiss/pioneer-news-analysis/dwell_analysis.R')
 ```
 
-# Population description
 We begin with a description of the population itself.
 
+# Data cleaning and preparation
+
+## Dwell, idle, and active time
 ```{r}
 dwell_tbl = dwell %>% 
   filter(visit_start_date > "2018-01-01" & visit_start_date <"2018-05-01") %>%
@@ -24,27 +28,28 @@ dwell_stages_tbl = dwell_tbl %>%
     days_since_appearance >= 8 & days_since_appearance < 15 ~ 'treatment',
     days_since_appearance >=15 & days_since_appearance < 23 ~ 'posttreatment',
     days_since_appearance >=23 ~ 'after'
-  )) %>%
-  sdf_register('dwell_stages_tbl')
+  )) #%>%
+  #sdf_register('dwell_stages_tbl')
 
-tbl_cache(sc, 'dwell_stages_tbl')
+#tbl_cache(sc, 'dwell_stages_tbl')
+
+activity_tbl = dwell_stages_tbl %>% 
+  filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>%
+  mutate(total_active_time = total_dwell_time - total_idle_time) %>%
+  filter(total_active_time < 5000) %>% #99.999%
+  sdf_register('activity_tbl')
+
+tbl_cache(sc, 'activity_tbl')
 ```
 
 
+## Distribution of activity during the study period
 ```{r}
-
-```
-
-
-## Usage characteristics
-
-```{r}
-
-visitdate_df = dwell_stages_tbl %>% 
+visitdate_df = activity_tbl %>% 
   group_by(id, visit_start_date, stage) %>%
   count %>% collect
 
-startdate_df = dwell_stages_tbl %>% 
+startdate_df = activity_tbl %>% 
   group_by(id, days_since_appearance, stage) %>%
   count %>% collect
 
@@ -55,7 +60,7 @@ ggplot(visitdate_df, aes(
 )) +
   geom_bar(stat='identity', width=.5) +
   guides(color=F) +
-  theme_bw()
+  theme_bw()+ scale_color_solarized()
 
 ggplot(startdate_df, aes(
   x=days_since_appearance,
@@ -64,7 +69,7 @@ ggplot(startdate_df, aes(
 )) +
   geom_bar(stat='identity', width=.5)+
   guides(color=F) +
-  theme_bw()
+  theme_bw() + scale_color_pander()
 
 ggplot(startdate_df, aes(
   x=days_since_appearance,
@@ -74,82 +79,108 @@ ggplot(startdate_df, aes(
 )) +
   geom_boxplot() +
   guides(color=F) +
-  theme_bw()
+  theme_bw() + scale_colour_ptol()
 ```
 
-What does this look like 
+## General activity of enrollees over the study period
 ```{r}
 
-ecdf_activedays_df = dwell_stages_tbl %>%
-  group_by(days_since_appearance, id) %>%
+ecdf_activedays_df = activity_tbl %>%
+  group_by(visit_start_date, branch, id) %>%
   count %>%
   filter(n>0)%>%
+  group_by(id, branch)%>%
+  count %>%
   collect
 
-ecdf_activedays_df = dwell_stages_tbl %>%
-  group_by(visit_start_date, id) %>%
+#ecdf_activedays_df %>% filter(id==959)
+ggplot(ecdf_activedays_df, aes(nn)) + geom_histogram(binwidth=1,position='dodge') + theme_bw()
+ggplot(ecdf_activedays_df, aes(nn)) + stat_ecdf(geom='step') + theme_bw()
+ggplot(ecdf_activedays_df, aes(nn, fill=branch)) + geom_histogram(binwidth=1,position='dodge') + scale_color_canva(palette='Clean and crisp')
+ggplot(ecdf_activedays_df, aes(nn, color=branch)) + stat_ecdf(geom='step') + theme_bw()+ scale_color_canva(palette='Elegant and sophisticated')
+
+```
+
+### Without weekends?
+```{r}
+ecdf_activedays_df = activity_tbl %>%
+  group_by(visit_start_date, branch, id) %>%
   count %>%
+  collect %>%
+  mutate(wday=wday(visit_start_date)) %>%
   filter(n>0)%>%
-  group_by(id)%>%
+  filter(wday !=1 & wday !=7)%>%
+  group_by(id, branch)%>%
   count %>%
   collect
 
 #ecdf_activedays_df %>% filter(id==959)
 
-ggplot(ecdf_activedays_df, aes(nn)) + geom_histogram(binwidth=1) + theme_bw()
+ggplot(ecdf_activedays_df, aes(nn)) + geom_histogram(binwidth=1,position='dodge') + theme_bw() 
 ggplot(ecdf_activedays_df, aes(nn)) + stat_ecdf(geom='step') + theme_bw()
-
+ggplot(ecdf_activedays_df, aes(nn, fill=branch)) + geom_histogram(binwidth=1,position='dodge') + theme_bw()+ scale_fill_canva(palette='Sleek and modern')
+ggplot(ecdf_activedays_df, aes(nn, color=branch)) + stat_ecdf(geom='step') + theme_bw()+ scale_color_canva(palette='Modern and minimal')
 ```
 
 
-## Pageviews
+## Average number of pageviews per day
 ```{r}
-durations = dwell %>%
-  #filter(visit_start_date > "2018-01-01" & visit_start_date <"2018-05-01") %>%
-  #filter(days_since_appearance > 0 & days_since_appearance < 23) %>%
-  group_by(branch, visit_start_date) %>%
-  summarise(total=sum(total_dwell_time, na.rm=T)) %>%
+daily_pagevisits = activity_tbl %>%
+  group_by(id,visit_start_date) %>%
+  count %>%
+  ungroup %>% group_by(id) %>%
+  summarise(
+    mu=mean(n, na.rm=T)
+  ) %>%
+  filter(mu<800) %>%
   collect
 
-ggplot(durations, aes(
-  x=visit_start_date,
-  y=total,
-  fill=pid)) +
-  geom_bar(aes(color=pid), stat='identity',position='dodge') +
-  facet_wrap(~branch)
-
-days_active = joined_dwell %>%
-  group_by(pioneer_id,visit_start_date) %>%
-  count %>%
-  filter(n>0) %>%
-  ungroup %>%
-  group_by(pioneer_id) %>%
-  count %>%
-  collect
-
-days_active_unres = dwell %>%
-  group_by(pioneer_id,visit_start_date) %>%
-  count %>%
-  filter(n>0) %>%
-  ungroup %>%
-  group_by(pioneer_id) %>%
-  count %>%
-  collect
-
-days_active_cens = days_active_unres %>% filter(!pioneer_id %in% days_active$pioneer_id) %>% collect
-
-days_active$type='survey'
-days_active_unres$type='all'
-days_active_cens$type='censored'
-active_days = rbind(days_active, days_active_unres,days_active_cens)
-
-ggplot(active_days, aes(
-  x=nn, fill=type)) + stat_ecdf(aes(color=type))
+ggplot(daily_pagevisits, aes(x=mu)) + geom_histogram(binwidth=1) + theme_bw()
+ggplot(daily_pagevisits, aes(x=mu)) + stat_ecdf() + theme_bw()
+ggplot(daily_pagevisits, aes(x=log(mu))) + geom_histogram(binwidth=.01) + theme_bw()
+ggplot(daily_pagevisits, aes(x=log(mu))) + stat_ecdf() + theme_bw()
 
 ```
 
+### Average total active browsing per day
+```{r}
+daily_active_browsing = activity_tbl %>%
+  group_by(id,days_since_appearance) %>%
+  summarise(total_s=sum(total_active_time, na.rm=T)) %>%
+  filter(total_s<17290.93) %>%
+  mutate(total_m=total_s/60) %>%
+  mutate(total_h=total_m/24) %>%
+  filter(total_m>1)%>%
+  collect
 
-## Dwell, idle, and active time
+ggplot(daily_active_browsing, aes(x=total_h)) + stat_ecdf() + theme_bw()
+ggplot(daily_active_browsing, aes(x=log(total_h))) + stat_ecdf() + theme_bw()
+ggplot(daily_active_browsing, aes(x=total_h)) + geom_histogram(bins=1000, labels=comma)+ theme_bw()
+ggplot(daily_active_browsing, aes(x=total_m)) + geom_histogram(bins=1000, labels=comma)+ theme_bw()
+ggplot(daily_active_browsing, aes(x=log(total_m))) + geom_histogram(bins=1000, labels=comma)+ theme_bw()
+```
+
+
+
+### Length of average site visit
+```{r}
+daily_avg_activity=activity_tbl %>%
+
+   group_by(id, visit_start_date) %>%
+   summarise(
+    mean=mean(total_active_time, na.rm=T),
+    n = n()) %>%
+  ungroup %>% group_by(visit_start_date) %>%
+  filter(mean>1) %>%
+  collect
+
+ggplot(daily_avg_activity, aes(x=mean)) + geom_histogram(binwidth=.1) + theme_bw()
+ggplot(daily_avg_activity, aes(x=log(mean))) + geom_histogram(binwidth=.01) + theme_bw()
+ggplot(daily_avg_activity, aes(x=visit_start_date, y=mean, group=visit_start_date)) + geom_boxplot() + theme_bw()
+ggplot(daily_avg_activity, aes(x=visit_start_date, y=log(mean), group=visit_start_date)) + geom_boxplot() + theme_bw()
+
+kable(quantile(daily_avg_activity$mean, probs=c(0, .25, .5, .75, .99, .999, .9999, 1)))
+```
 
 ## Self report
 
@@ -160,17 +191,47 @@ ggplot(active_days, aes(
 # Analysis
 
 ## Scored domains
+```{r}
+scored_activity_tbl = activity_tbl %>% inner_join(scored_domains_tbl, copy=T) %>% select(-domain2, -pioneer_id)
 
-## Distribution of visits across scored domains
-
-## 
-
-
-```{r cars}
-summary(cars)
+align_dist = scored_activity_tbl %>%
+  group_by(id, score, branch, stage) %>%
+  summarise(scored_active=mean(log(total_active_time), na.rm=T)*abs(score)) %>%
+  filter(stage != 'treatment') %>%
+  collect
+  
+ggplot(align_dist, aes(
+  x=scored_active,
+  fill=stage)) + 
+  geom_histogram(binwidth=.01, position='dodge') + facet_wrap(~branch, ncol=1)
 ```
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+
+## Distribution of visits across scored domains
+```{r}
+library(ggeffects)
+treatment_df = scored_activity_tbl %>%
+  group_by(id, stage, score, branch, days_since_appearance) %>%
+  summarise(mean_active_s = mean(total_active_time, na.rm=T)) %>%
+  sdf_pivot(id + days_since_appearance + branch + mean_active_s + score ~ stage) %>%
+  na.replace(0) %>%
+  mutate(pretreatment = pretreatment * mean_active_s) %>%
+  mutate(treatment = treatment * mean_active_s) %>%
+  mutate(posttreatment = posttreatment * mean_active_s) %>%
+  mutate(
+    branch_num = case_when(
+      branch=='control'~'C',
+      branch=='treatment-bias'~'T',
+      branch=='treatment-whois'~'B'
+    ))
+
+fit1 = glm(data=treatment_df, formula=posttreatment~pretreatment + branch_num)
+summary(fit1)
+
+fit2 = glm(data=treatment_df, formula=posttreatment~pretreatment*branch_num + branch_num)
+summary(fit2)
+
+dat = ggpredict(fit2, terms = 'branch_num')
+plot(dat, facet=TRUE)
 ```
 
