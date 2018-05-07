@@ -1,6 +1,8 @@
 #install.packages('lubridate')
 #install.packages('stringr')
-library(stringr)
+# install.packages("ggthemes")
+# install.packages("pander")
+# install.packages('ggeffects')
 library(lubridate)
 library(sparklyr)
 library(dplyr)
@@ -11,6 +13,11 @@ library(stringr)
 library(fuzzyjoin)
 library(tidyr)
 library(magrittr)
+library(ggthemes)
+library(knitr)
+library(pander)
+library(ggeffects)
+
 
 #spark config
 
@@ -19,14 +26,14 @@ config <- spark_config()
 config$spark.driver.memory <- "8G"
 config$spark.executor.memory <- "5G"
 config$spark.executor.core <- 3
-config$spark.executor.instances <- 5
+config$spark.executor.instances <- 4
 config$spark.sql.shuffle.partitions <- 320
 sc <- spark_connect(master = "yarn-client", version = "1.6.2", config = config)
 
 #dwell_parquet_dir = 's3://net-mozaws-data-us-west-2-data-pioneer-analysis/online_news_v2/dwell_time_complete/'
 dwell_parquet_dir = 's3://net-mozaws-data-us-west-2-data-pioneer-analysis/online_news_v2/dwell_time_new_handling/'
-dwell = spark_read_parquet(sc, name='dwell_time', path=dwell_parquet_dir, memory=TRUE)
-sdf_register(dwell, "dwell_tbl")
+dwell = spark_read_parquet(sc, name='dwell_time', path=dwell_parquet_dir, memory=FALSE)
+#dwell_tbl = 
 
 bias_json = 'https://raw.githubusercontent.com/mozilla/pioneer-study-online-news-2/master/extension/bias-domains.json'
 whois_json = 'https://raw.githubusercontent.com/mozilla/pioneer-study-online-news-2/master/extension/whois-domains.json'
@@ -36,39 +43,12 @@ whois_scores = fromJSON(whois_json)
 bias_scores$domain = str_replace(bias_scores$domain, 'www.','')
 
 domains = dwell %>% group_by(domain) %>% count %>% collect
-sum(domains$domain %in% bias_scores$domain)
+#scored_domains = stringdist_inner_join(bias_scores, domains, by='domain', max_dist=0.5)
+scored_domains = inner_join(bias_scores, domains, by='domain')
+names(scored_domains) = c('domain', 'score','n')
+scored_domains_tbl = sdf_copy_to(sc,scored_domains, overwrite = T)
+scored_dwell_tbl = dwell_tbl %>% inner_join(scored_domains_tbl) %>% select(-domain2) %>% sdf_register('scored_dwell_tbl')
 
-scored_domains = stringdist_inner_join(bias_scores, domains, by='domain', max_dist=0.5)
-names(scored_domains) = c('domain', 'score','domain2','n')
-#sdf_copy_to(sc, scored_domains)
-#tbl_cache(sc, 'scored_domains')
-
-scored_domains_tbl = sdf_copy_to(sc,scored_domains)
-scored_dwell = dwell %>% inner_join(scored_domains_tbl)
-#sdf_register(scored_dwell, 'scored_dwell_tbl')
-#tbl_cache(sc, 'scored_dwell_tbl')
-
-### some data transformations
-
-dwell_stages = dwell %>% 
-  mutate(stage = case_when(
-    days_since_appearance == 0 ~ 'enrollment',
-    days_since_appearance > 0 & days_since_appearance < 8 ~ 'pretreatment',
-    days_since_appearance >= 8 & days_since_appearance < 15 ~ 'treatment',
-    days_since_appearance >=15 & days_since_appearance < 23 ~ 'posttreatment',
-    days_since_appearance >=23 ~ 'after'
-  ))
-
-scored_dwell_stages = scored_dwell %>% 
-  mutate(stage = case_when(
-    days_since_appearance == 0 ~ 'enrollment',
-    days_since_appearance > 0 & days_since_appearance < 8 ~ 'pretreatment',
-    days_since_appearance >= 8 & days_since_appearance < 15 ~ 'treatment',
-    days_since_appearance >=15 & days_since_appearance < 23 ~ 'posttreatment',
-    days_since_appearance >=23 ~ 'after'
-  ))
-#scored_dwell_stages_tbl = sdf_copy_to(sc, scored_dwell_stages)
-# 
 # n_treatments = scored_dwell_stages %>%
 #   filter(domain != 'youtube.com' & domain != 'google.com') %>%
 #   group_by(pioneer_id, stage) %>%
@@ -81,78 +61,10 @@ scored_dwell_stages = scored_dwell %>%
 #  collect
 
 #names(n_treatments_tbl) = c('pioneer_id','treatments')
-# 
-# scored_dwell_stages_treatments = scored_dwell_stages %>%
-#   inner_join(n_treatments_tbl, by='pioneer_id') %>%
-#   sdf_register('scored_dwell_stages_treatments_tbl')
 
-# scored_dwell_stages_treatments %>%
-#   mutate(total_active_time = total_dwell_time - total_idle_time) %>%
-#   filter(domain != 'youtube.com' & domain != 'google.com') %>%
-#   sdf_quantile("total_active_time", probabilities=c(.5, .9,.99,.999,1.0))
 
-### simple analysis
-# 
-# treatment_df = scored_dwell_stages_treatments %>% 
-#   mutate(total_active_time = total_dwell_time - total_idle_time) %>%
-#   filter(domain != 'youtube.com' & domain != 'google.com') %>%
-#   group_by(pioneer_id, stage, score, branch, treatments) %>%
-#   summarise(mean_active_s = mean(total_active_time , na.rm=T)) %>%
-#   sdf_pivot(pioneer_id + branch + mean_active_s + score + treatments ~ stage) %>%
-#   na.replace(0) %>%
-#   mutate(pretreatment = pretreatment * mean_active_s) %>%
-#   mutate(treatment = treatment * mean_active_s) %>%
-#   mutate(posttreatment = posttreatment * mean_active_s) %>%
-#   mutate(
-#     branch_num = case_when(
-#       branch=='control'~'C',
-#       branch=='treatment-bias'~'T',
-#       branch=='treatment-whois'~'B'
-#     ))
+## Scratch, lots of little summaries
 
-# fit = ml_linear_regression(x=treatment_df, formula=posttreatment~pretreatment + branch)
-# summary(fit)
-
-#fit1 = glm(data=treatment_df, formula=posttreatment~pretreatment + branch)
-#summary(fit1)
-
-#fit2 = glm(data=treatment_df, formula=posttreatment~pretreatment + branch + treatments)
-#summary(fit2)
-
-#fit3 = glm(data=treatment_df, posttreatment~pretreatment*branch_num + branch_num)
-#summary(fit3)
-# 
-# tmp = scored_dwell_stages_treatments %>%
-#   mutate(total_active_time = total_dwell_time - total_idle_time) %>%
-#   mutate(bias_active_time = total_active_time * abs(score)) %>%
-#   filter(domain != 'youtube.com' & domain != 'google.com') %>%
-#   group_by(pioneer_id, stage, score, branch, treatments) %>%
-#   summarise(
-#     mean_active_s = mean(total_active_time , na.rm=T),
-#     total_active_s = sum(total_active_time, na.rm=T),
-#     mean_bias_s = mean(bias_active_time , na.rm=T)) %>%
-#   sdf_pivot(pioneer_id + branch + mean_bias_s + total_active_s + score + treatments ~ stage) %>%
-#   na.replace(0) %>%
-#   mutate(pretreatment = pretreatment * mean_bias_s/total_active_s) %>%
-#   mutate(treatment = treatment * mean_bias_s/total_active_s) %>%
-#   mutate(posttreatment = posttreatment * mean_bias_s) %>%
-#   mutate(
-#     branch_num = case_when(
-#       branch=='control'~'C',
-#       branch=='treatment-bias'~'T',
-#       branch=='treatment-whois'~'B'
-#     ))
-# 
-# #scored_dwell_stages %>% 
-# 
-# fit1 = glm(data=tmp, formula=posttreatment~pretreatment + branch_num)
-# #summary(fit1)
-# 
-# fit2 = glm(data=tmp, formula=posttreatment~pretreatment + branch + treatments)
-# #summary(fit2)
-# 
-# fit3 = glm(data=tmp, posttreatment~pretreatment + branch*treatments)
-# 
 # 
 # scored_dwell_stages_treatments %>%
 #   mutate(total_active_time = total_dwell_time - total_idle_time) %>%
@@ -160,8 +72,6 @@ scored_dwell_stages = scored_dwell %>%
 #   mutate(bias_active_time = abs(scaled_active_time * score)) %>%
 #   sdf_quantile("bias_active_time", probabilities=c(.5, .9,.99,.999,1.0))
 
-
-## Scratch, lots of little summaries
 
 # tmp = scored_dwell %>% group_by(days_since_appearance, branch, domain) %>%
 #   filter(visit_start_date > "2018-01-01" & visit_start_date <"2018-05-01") %>%

@@ -35,7 +35,7 @@ names(wave1)[21] = NA#"Postal"
 names(wave1)[22] = 'url_pioneer_id'#"URL Variable: pioneer_id"                                                                                                                                                   
 names(wave1)[23] = NA#"URL Variable: utm_campaign"                                                                                                                                                 
 names(wave1)[24] = NA#"URL Variable: utm_source"                                                                                                                                                   
-names(wave1)[25] "pioneer_id"                                                                                                                                                                 
+names(wave1)[25] = "pioneer_id"                                                                                                                                                                 
 names(wave1)[26] = 'age' #"What is your age?"                                                                                                                                                          
 names(wave1)[27] = 'gender' #"What gender do you identify as?"                                                                                                                                            
 names(wave1)[28] = 'education' #"What is the highest level of school you have completed or the highest degree you have received?"                                                                            
@@ -107,12 +107,12 @@ names(wave2)[33] = 'feeltherm_irs'# "The IRS:On a scale from 0 (coldest) to 100 
 names(wave2)[34] = 'feeltherm_usps'# "The US Postal Service:On a scale from 0 (coldest) to 100 (warmest) how do you feel about the following people and groups?"                                                  
 names(wave2)[35] = 'feeltherm_dc'# "Democratic Congressmen:On a scale from 0 (coldest) to 100 (warmest) how do you feel about the following people and groups?"
 
+# drop all the columns that aren't useful
 wave1 = wave1[!is.na(names(wave1))]
 wave2 = wave2[!is.na(names(wave2))]
 
 
 # recoding
-
 wave1$education=recode(wave1$education, 
                 'Four year college degree/bachelor’s degree '=3,
                 'High school graduate or GED (includes technical/vocational training that doesn’t count towards college credit)'=1,
@@ -197,120 +197,121 @@ full_df=full_df %>%
 # ###
 
 completes = full_df %>% group_by(pioneer_id) %>% summarize(n = n()) %>% filter(n>1) %>% select(pioneer_id)
-branches = dwell_stages %>% select(pioneer_id, branch) %>% group_by(pioneer_id) %>% filter(row_number(branch)==1)
-
-feeltherms = full_df %>% select(pioneer_id, wave, starts_with('feeltherm_')) %>% 
-  #na.replace(0)%>%
-  inner_join(completes)%>%
-  inner_join(branches, copy=T)%>%
-  inner_join(pid)%>%
-  gather(key, value, -wave,-branch,-pid,-pioneer_id) %>%
-  group_by(pioneer_id, key, branch, pid) %>%
-  mutate(delta = value - lag(value, default = 0)) %>%
-  filter(wave==2) %>%
-  group_by(key, branch, pid) %>%
-  count(delta) %>% collect
-  
-feeltherms %>%
-  ggplot(aes(
-    x=delta,
-    y=n#,
-#    color=branch
-  )) + 
-  geom_bar(stat='identity', position='dodge') + facet_grid(~pid)
-
-plot = feeltherms %>% 
-  group_by(branch, key) %>%
-  summarise(
-    mean=mean(delta, na.rm=T),
-    sd = sd(delta, na.rm = TRUE),
-    n = n()) %>%
-  mutate(se = sd / sqrt(n),
-         lower.ci = mean - qt(1 - (0.05 / 2), n - 1) * se,
-         upper.ci = mean + qt(1 - (0.05 / 2), n - 1) * se)
-
-ggplot(plot, aes(
-  x=branch,
-  y=mean,
-  color=branch
-)) +
-  geom_pointrange(aes(ymin=lower.ci, ymax=upper.ci)) + 
-  coord_flip() + 
-  facet_wrap(~key, nrow=8)
-
-# no effect on feeling thermometers
-
-mediabias = full_df %>% select(pioneer_id, wave, starts_with('media_bias')) %>% 
-  #na.replace(0)%>%
-  inner_join(completes)%>%
-  inner_join(branches, copy=T)%>%
-  inner_join(pid)%>%
-  gather(key, value, -wave,-branch,-pid,-pioneer_id) %>%
-  group_by(pioneer_id, key, branch, pid) %>%
-  mutate(delta = value - lag(value, default = 0)) %>%
-  filter(wave==2) %>%
-  group_by(key, branch, pid) %>%
-  count(delta) %>% collect
-
-mediabias %>%
-  ggplot(aes(
-    x=delta,
-    y=n#,
-    #    color=branch
-  )) + 
-  geom_bar(stat='identity', position='dodge') + facet_grid(~pid)
-
-plot = mediabias %>% 
-  group_by(branch, key) %>%
-  summarise(
-    mean=mean(delta, na.rm=T),
-    sd = sd(delta, na.rm = TRUE),
-    n = n()) %>%
-  mutate(se = sd / sqrt(n),
-         lower.ci = mean - qt(1 - (0.05 / 2), n - 1) * se,
-         upper.ci = mean + qt(1 - (0.05 / 2), n - 1) * se)
-
-ggplot(plot, aes(
-  x=branch,
-  y=mean,
-  color=branch
-)) +
-  geom_pointrange(aes(ymin=lower.ci, ymax=upper.ci)) + 
-  coord_flip() + 
-  facet_wrap(~key, nrow=8)
-
-# any point shifts in media bias?
-
-tmp=full_df %>% 
-  inner_join(completes)%>%
-  inner_join(branches, copy=T)%>%
-  inner_join(pid) %>%
-  group_by(wave, pid, branch) %>%
-  summarise(
-    mean=mean(media_bias3, na.rm=T),
-    sd = sd(media_bias3, na.rm = TRUE),
-    n = n()) %>%
-  mutate(se = sd / sqrt(n),
-         lower.ci = mean - qt(1 - (0.05 / 2), n - 1) * se,
-         upper.ci = mean + qt(1 - (0.05 / 2), n - 1) * se)
-
-ggplot(tmp, aes(
-  x=branch,
-  y=mean,
-  color=wave
-)) +
-  geom_pointrange(aes(ymin=lower.ci, ymax=upper.ci)) + 
-  coord_flip() + 
-  facet_wrap(~pid, nrow=8)
+branches = dwell_stages_tbl %>% select(pioneer_id, branch) %>% group_by(pioneer_id) %>% filter(row_number(branch)==1)
+# 
+# feeltherms = full_df %>% select(pioneer_id, wave, starts_with('feeltherm_')) %>% 
+#   #na.replace(0)%>%
+#   inner_join(completes)%>%
+#   inner_join(branches, copy=T)%>%
+#   inner_join(pid)%>%
+#   gather(key, value, -wave,-branch,-pid,-pioneer_id) %>%
+#   group_by(pioneer_id, key, branch, pid) %>%
+#   mutate(delta = value - lag(value, default = 0)) %>%
+#   filter(wave==2) %>%
+#   group_by(key, branch, pid) %>%
+#   count(delta) %>% collect
+#   
+# feeltherms %>%
+#   ggplot(aes(
+#     x=delta,
+#     y=n#,
+# #    color=branch
+#   )) + 
+#   geom_bar(stat='identity', position='dodge') + facet_grid(~pid)
+# 
+# plot = feeltherms %>% 
+#   group_by(branch, key) %>%
+#   summarise(
+#     mean=mean(delta, na.rm=T),
+#     sd = sd(delta, na.rm = TRUE),
+#     n = n()) %>%
+#   mutate(se = sd / sqrt(n),
+#          lower.ci = mean - qt(1 - (0.05 / 2), n - 1) * se,
+#          upper.ci = mean + qt(1 - (0.05 / 2), n - 1) * se)
+# 
+# ggplot(plot, aes(
+#   x=branch,
+#   y=mean,
+#   color=branch
+# )) +
+#   geom_pointrange(aes(ymin=lower.ci, ymax=upper.ci)) + 
+#   coord_flip() + 
+#   facet_wrap(~key, nrow=8)
+# 
+# # no effect on feeling thermometers
+# 
+# mediabias = full_df %>% select(pioneer_id, wave, starts_with('media_bias')) %>% 
+#   #na.replace(0)%>%
+#   inner_join(completes)%>%
+#   inner_join(branches, copy=T)%>%
+#   inner_join(pid)%>%
+#   gather(key, value, -wave,-branch,-pid,-pioneer_id) %>%
+#   group_by(pioneer_id, key, branch, pid) %>%
+#   mutate(delta = value - lag(value, default = 0)) %>%
+#   filter(wave==2) %>%
+#   group_by(key, branch, pid) %>%
+#   count(delta) %>% collect
+# 
+# mediabias %>%
+#   ggplot(aes(
+#     x=delta,
+#     y=n#,
+#     #    color=branch
+#   )) + 
+#   geom_bar(stat='identity', position='dodge') + facet_grid(~pid)
+# 
+# plot = mediabias %>% 
+#   group_by(branch, key) %>%
+#   summarise(
+#     mean=mean(delta, na.rm=T),
+#     sd = sd(delta, na.rm = TRUE),
+#     n = n()) %>%
+#   mutate(se = sd / sqrt(n),
+#          lower.ci = mean - qt(1 - (0.05 / 2), n - 1) * se,
+#          upper.ci = mean + qt(1 - (0.05 / 2), n - 1) * se)
+# 
+# ggplot(plot, aes(
+#   x=branch,
+#   y=mean,
+#   color=branch
+# )) +
+#   geom_pointrange(aes(ymin=lower.ci, ymax=upper.ci)) + 
+#   coord_flip() + 
+#   facet_wrap(~key, nrow=8)
+# 
+# # any point shifts in media bias?
+# 
+# tmp=full_df %>% 
+#   inner_join(completes)%>%
+#   inner_join(branches, copy=T)%>%
+#   inner_join(pid) %>%
+#   group_by(wave, pid, branch) %>%
+#   summarise(
+#     mean=mean(media_bias3, na.rm=T),
+#     sd = sd(media_bias3, na.rm = TRUE),
+#     n = n()) %>%
+#   mutate(se = sd / sqrt(n),
+#          lower.ci = mean - qt(1 - (0.05 / 2), n - 1) * se,
+#          upper.ci = mean + qt(1 - (0.05 / 2), n - 1) * se)
+# 
+# ggplot(tmp, aes(
+#   x=branch,
+#   y=mean,
+#   color=wave
+# )) +
+#   geom_pointrange(aes(ymin=lower.ci, ymax=upper.ci)) + 
+#   coord_flip() + 
+#   facet_wrap(~pid, nrow=8)
 
 
 ############
 
 pid = select(wave1, pioneer_id, pid3)
 names(pid) = c('pioneer_id','pid')
-sdf_copy_to(sc, pid)
-restricted_df = filter(full_df, pioneer_id %in% completes$id) %>% full_join(pid, by=c(pioneer_id))
-completes2 = dwell %>% group_by(pioneer_id) %>% summarise(n=n_distinct(pioneer_id)) %>% select(pioneer_id) %>% collect
+sdf_copy_to(sc, pid, overwrite=T)
+restricted_df = filter(full_df, pioneer_id %in% completes$pioneer_id) %>% full_join(pid, by='pioneer_id')
+completes2 = dwell_tbl %>% group_by(pioneer_id) %>% summarise(n=n_distinct(pioneer_id)) %>% select(pioneer_id) %>% collect
+valids = data.frame(pioneer_id=wave1[wave1$pioneer_id %in% completes2$pioneer_id,]$pioneer_id)
 #sum(wave1$`URL Variable: pioneer_id` %in% completes2$pioneer_id)
 
 ######
@@ -326,7 +327,7 @@ completes2 = dwell %>% group_by(pioneer_id) %>% summarise(n=n_distinct(pioneer_i
 # Let's say we want to look at browsing data of all wave1 responses
 
 #valids = data.frame(pioneer_id=wave1[wave1$`URL Variable: pioneer_id` %in% completes2$pioneer_id,]$`URL Variable: pioneer_id`)
-valids = data.frame(pioneer_id=wave1[wave1$pioneer_id %in% completes2$pioneer_id,]$pioneer_id)
+
 
 ##########
 

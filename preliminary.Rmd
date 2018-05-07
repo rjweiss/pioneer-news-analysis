@@ -1,17 +1,63 @@
 ---
-title: "test_html"
+title: "preliminary"
 output: 
   html_document:
     keep_md: true
 ---
 
-```{r setup, include=FALSE, cache=T}
+```{r setup, include=FALSE}
+#install.packages('lubridate')
+#install.packages('stringr')
+# install.packages("ggthemes")
+# install.packages("pander")
+# install.packages('ggeffects')
+library(lubridate)
+library(sparklyr)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(jsonlite)
+library(stringr)
+library(fuzzyjoin)
+library(tidyr)
+library(magrittr)
+library(ggthemes)
+library(knitr)
+library(pander)
+library(ggeffects)
+
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(
   cache.path = '/home/hadoop/analyses/rweiss/pioneer-news-analysis/cache/',
   cache.extra = list(R.version, sessionInfo(), format(Sys.Date(), '%Y-%m'))
   )
-#source('~/analyses/rweiss/pioneer-news-analysis/dwell_analysis.R')
+
+#spark config
+Sys.setenv(SPARK_HOME='/usr/lib/spark')
+config <- spark_config()
+config$spark.driver.memory <- "5G"
+config$spark.executor.memory <- "5G"
+config$spark.yarn.executor.memoryOverhead <- "2G"
+config$spark.executor.core <- 3
+config$spark.executor.instances <- 5
+config$spark.sql.shuffle.partitions <- 320
+sc <- spark_connect(master = "yarn-client", version = "1.6.2", config = config)
+
+#dwell_parquet_dir = 's3://net-mozaws-data-us-west-2-data-pioneer-analysis/online_news_v2/dwell_time_complete/'
+dwell_parquet_dir = 's3://net-mozaws-data-us-west-2-data-pioneer-analysis/online_news_v2/dwell_time_new_handling/'
+dwell_tbl = spark_read_parquet(sc, name='dwell_tbl', path=dwell_parquet_dir, repartition=100)#, memory=TRUE, repartition=100) %>% sdf_register('dwell_tbl')
+
+bias_json = 'https://raw.githubusercontent.com/mozilla/pioneer-study-online-news-2/master/extension/bias-domains.json'
+whois_json = 'https://raw.githubusercontent.com/mozilla/pioneer-study-online-news-2/master/extension/whois-domains.json'
+bias_scores = fromJSON(bias_json)
+whois_scores = fromJSON(whois_json)
+bias_scores$domain = str_replace(bias_scores$domain, 'www.','')
+
+domains = dwell_tbl %>% group_by(domain) %>% count %>% collect
+scored_domains = inner_join(bias_scores, domains, by='domain')
+names(scored_domains) = c('domain', 'score','n')
+scored_domains_tbl = sdf_copy_to(sc,scored_domains, overwrite = T)
+scored_dwell_tbl = dwell_tbl %>% inner_join(scored_domains_tbl) %>% sdf_register('scored_dwell_tbl')
 ```
 
 We begin with a description of the population itself.
@@ -20,14 +66,13 @@ We begin with a description of the population itself.
 
 ## Dwell, idle, and active time
 ```{r activity_tbl, echo=FALSE, cache=TRUE}
-dwell_tbl = dwell %>% 
+dwell_clean_tbl = dwell_tbl %>% 
   filter(visit_start_date > "2018-01-01" & visit_start_date <"2018-05-01") %>% # remove odd clients, likely clock skew
   filter(days_since_appearance > 0 & days_since_appearance < 23) %>% # only look at study periods
   ft_string_indexer(input_col='pioneer_id', output_col='id') #%>% # recode pioneer ids
-#  select(-pioneer_id) 
 
 # annotate site session events per client with likely stage of study
-dwell_stages_tbl = dwell_tbl %>% 
+dwell_stages_tbl = dwell_clean_tbl %>% 
   mutate(stage = case_when(
     days_since_appearance == 0 ~ 'enrollment',
     days_since_appearance > 0 & days_since_appearance < 8 ~ 'pretreatment',
@@ -43,13 +88,28 @@ activity_tbl = dwell_stages_tbl %>%
   filter(total_active_time < 5000) %>% # remove clients with active time greater than 99.999%
   sdf_register('activity_tbl')
 
+# annotate site session events per client with likely stage of study
+scored_activity_tbl = scored_dwell_tbl %>% 
+  filter(visit_start_date > "2018-01-01" & visit_start_date <"2018-05-01") %>% # remove odd clients, likely clock skew
+  filter(days_since_appearance > 0 & days_since_appearance < 23) %>% # only look at study periods
+  mutate(stage = case_when(
+    days_since_appearance == 0 ~ 'enrollment',
+    days_since_appearance > 0 & days_since_appearance < 8 ~ 'pretreatment',
+    days_since_appearance >= 8 & days_since_appearance < 15 ~ 'treatment',
+    days_since_appearance >=15 & days_since_appearance < 21 ~ 'posttreatment',
+    days_since_appearance >=22 ~ 'after')) %>%
+  mutate(total_active_time = total_dwell_time - total_idle_time) %>%
+  filter(total_active_time < 5000) %>% # remove clients with active time greater than 99.999%
+  sdf_register('scored_activity_tbl')
+
 # cache table for faster compute
-tbl_cache(sc, 'activity_tbl')
+#tbl_cache(sc, 'activity_tbl')
+#tbl_cache(sc, 'scored_activity_tbl')
 ```
 
 
 ## Distribution of activity during the study period
-```{r enrollment_plots, cache=TRUE}
+```{r enrollment_plots}
 visitdate_df = activity_tbl %>% 
   group_by(id, visit_start_date, stage) %>%
   count %>% collect
@@ -93,7 +153,7 @@ ggplot(startdate_df, aes(
 ```
 
 ## General activity of enrollees over all study periods
-```{r daysactive_plots, cache=TRUE}
+```{r daysactive_plots}
 ecdf_activedays_df = activity_tbl %>%
   group_by(visit_start_date, branch, id) %>%
   count %>%
@@ -126,58 +186,57 @@ ggplot(ecdf_activedays_df, aes(nn, color=branch)) + stat_ecdf(geom='step') +
 ```
 
 ### Without weekends?
-```{r wdaysactive_plots, cache=TRUE}
-pdf_activewdays_df = activity_tbl %>%
-  group_by(visit_start_date, branch, id) %>%
-  count %>%
-  collect %>%
-  mutate(wday=wday(visit_start_date)) %>%
-  filter(n>0)%>%
-  ungroup %>% group_by(wday) %>%
-  count %>% collect
-
-ecdf_activewdays_df = activity_tbl %>%
-  group_by(visit_start_date, branch, id) %>%
-  count %>%
-  collect %>%
-  mutate(wday=wday(visit_start_date)) %>%
-  filter(n>0 & wday !=1 & wday !=7)%>%
-  group_by(id, branch)%>%
-  count %>% collect
-
-ggplot(ecdf_activewdays_df, aes(nn)) + 
-  geom_histogram(binwidth=1,position='dodge') + 
-  theme_bw() +
-  labs(title = "New plot title", subtitle = "A subtitle")
-
-ggplot(ecdf_activewdays_df, aes(nn)) + 
-  stat_ecdf(geom='step') + 
-  theme_bw() +
-  labs(title = "New plot title", subtitle = "A subtitle")
-
-ggplot(ecdf_activewdays_df, aes(nn, fill=branch)) + 
-  geom_histogram(binwidth=1,position='dodge') + 
-  scale_fill_canva(palette='Tropical tones', 
-                    guide=guide_legend(title='', label.position='bottom')) +
-  theme_bw()+ theme(legend.position="bottom") +
-  labs(title = "New plot title", subtitle = "A subtitle")
-
-ggplot(ecdf_activewdays_df, aes(nn, color=branch)) + 
-  stat_ecdf(geom='step') + 
-  theme_bw()+ theme(legend.position="bottom") +
-  scale_color_canva(palette='Tropical tones', 
-                    guide=guide_legend(title='', label.position='bottom')) +
-  
-  labs(title = "New plot title", subtitle = "A subtitle")
-
-kable(quantile(ecdf_activewdays_df$nn, probs=c(0, .25, .5, .75, .99, .999, .9999, 1)))
+```{r wdaysactive_plots}
+# pdf_activewdays_df = activity_tbl %>%
+#   group_by(visit_start_date, branch, id) %>%
+#   count %>%
+#   collect %>%
+#   mutate(wday=wday(visit_start_date)) %>%
+#   filter(n>0)%>%
+#   ungroup %>% group_by(wday) %>%
+#   count %>% collect
+# 
+# ecdf_activewdays_df = activity_tbl %>%
+#   group_by(visit_start_date, branch, id) %>%
+#   count %>%
+#   collect %>%
+#   mutate(wday=wday(visit_start_date)) %>%
+#   filter(n>0 & wday !=1 & wday !=7)%>%
+#   group_by(id, branch)%>%
+#   count %>% collect
+# 
+# ggplot(ecdf_activewdays_df, aes(nn)) + 
+#   geom_histogram(binwidth=1,position='dodge') + 
+#   theme_bw() +
+#   labs(title = "New plot title", subtitle = "A subtitle")
+# 
+# ggplot(ecdf_activewdays_df, aes(nn)) + 
+#   stat_ecdf(geom='step') + 
+#   theme_bw() +
+#   labs(title = "New plot title", subtitle = "A subtitle")
+# 
+# ggplot(ecdf_activewdays_df, aes(nn, fill=branch)) + 
+#   geom_histogram(binwidth=1,position='dodge') + 
+#   scale_fill_canva(palette='Tropical tones', 
+#                     guide=guide_legend(title='', label.position='bottom')) +
+#   theme_bw()+ theme(legend.position="bottom") +
+#   labs(title = "New plot title", subtitle = "A subtitle")
+# 
+# ggplot(ecdf_activewdays_df, aes(nn, color=branch)) + 
+#   stat_ecdf(geom='step') + 
+#   theme_bw()+ theme(legend.position="bottom") +
+#   scale_color_canva(palette='Tropical tones', 
+#                     guide=guide_legend(title='', label.position='bottom')) +
+#   
+#   labs(title = "New plot title", subtitle = "A subtitle")
+# 
+# kable(quantile(ecdf_activewdays_df$nn, probs=c(0, .25, .5, .75, .99, .999, .9999, 1)))
 
 ```
 
 ## Distribution of time of browsing
 
-```{r }
-# # time of day
+```{r timeofday}
 hours = activity_tbl %>% mutate(timestamp=hour(from_unixtime(visit_start_time))) %>% select(timestamp) %>% group_by(timestamp) %>% count %>% collect
 hours$timestamp = hours(hours$timestamp)
 
@@ -315,6 +374,11 @@ kable(quantile(daily_avg_activity$mean, probs=c(0, .25, .5, .75, .99, .999, .999
 
 ## Self report
 
+```{r}
+source('/home/hadoop/analyses/rweiss/pioneer-news-analysis/survey_recoding.R')
+```
+
+
 ### Demographics: Partisan ID, Age, Gender
 
 ### Browsing patterns against self report
@@ -323,40 +387,44 @@ kable(quantile(daily_avg_activity$mean, probs=c(0, .25, .5, .75, .99, .999, .999
 
 ## Browsing scored domains
 ```{r align_activity, cache=TRUE}
-scored_activity_tbl = activity_tbl %>% 
-  inner_join(scored_domains_tbl, copy=T) %>% 
-  select(-domain2) %>%
-  mutate(scored_active_time = total_active_time * abs(score)) # every session's active time * absolute value of the score
-
-align_dist = scored_activity_tbl %>%
-  group_by(id, score, branch, stage) %>%
-  summarise(scored_active=mean(log(total_active_time), na.rm=T)*abs(score)) %>%
-  filter(stage == 'pretreatment' & stage == 'posttreatment') %>%
-  collect
+#scored_activity_tbl = activity_tbl %>% 
+#  inner_join(scored_domains_tbl) %>% 
   
-ggplot(align_dist, aes(
-  x=scored_active,
-  fill=stage)) + 
-  geom_density() + 
-  theme_bw() + theme(legend.position='bottom') +
-  labs(title = "New plot title", subtitle = "A subtitle")
+
+# align_dist = scored_activity_tbl %>%
+#   #mutate(scored_active_time = total_active_time * abs(score)) %>% # every session's active time * absolute value of the score
+#   group_by(id, score, branch, stage) %>%
+#   summarise(scored_active=mean(log(total_active_time), na.rm=T)*abs(score)) %>%
+#   filter(stage == 'pretreatment' & stage == 'posttreatment') %>%
+#   collect
+#   
+# ggplot(align_dist, aes(
+#   x=scored_active,
+#   fill=stage)) + 
+#   geom_density() + 
+#   theme_bw() + theme(legend.position='bottom') +
+#   labs(title = "New plot title", subtitle = "A subtitle")
 ```
 
 
-```{r}
+```{r scaled_browsing}
 
-plot = scaled_browsing %>% group_by(id, branch,days_since_appearance) %>% select(id, days_since_appearance, scaled_active_bias_s) %>% collect
-
-ggplot(plot, aes(
-  x=scaled_active_bias_s,
-  fill=branch
-)) + geom_density() +
-  theme_bw()
+# df = scaled_browsing %>% group_by(id, branch,days_since_appearance) %>% select(id, days_since_appearance, scaled_active_bias_s) %>% collect
+# 
+# ggplot(df, aes(
+#   x=scaled_active_bias_s,
+#   fill=branch
+# )) + geom_density() +
+#   theme_bw()
 ```
 
 ## Browsing scored domains by partisan group
 
-```{r}
+```{r pid_browsing}
+
+pid_tbl = sdf_copy_to(sc,pid, overwrite=T)
+valids_tbl = sdf_copy_to(sc,valids,overwrite=T)
+
 daily_pid_scored_sessions = scored_activity_tbl %>% inner_join(valids_tbl) %>%
   filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% 
   inner_join(pid_tbl) %>%
