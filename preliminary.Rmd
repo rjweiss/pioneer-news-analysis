@@ -11,7 +11,7 @@ knitr::opts_chunk$set(
   cache.path = '/home/hadoop/analyses/rweiss/pioneer-news-analysis/cache/',
   cache.extra = list(R.version, sessionInfo(), format(Sys.Date(), '%Y-%m'))
   )
-source('~/analyses/rweiss/pioneer-news-analysis/dwell_analysis.R')
+#source('~/analyses/rweiss/pioneer-news-analysis/dwell_analysis.R')
 ```
 
 We begin with a description of the population itself.
@@ -32,17 +32,13 @@ dwell_stages_tbl = dwell_tbl %>%
     days_since_appearance == 0 ~ 'enrollment',
     days_since_appearance > 0 & days_since_appearance < 8 ~ 'pretreatment',
     days_since_appearance >= 8 & days_since_appearance < 15 ~ 'treatment',
-    days_since_appearance >=15 & days_since_appearance < 23 ~ 'posttreatment',
-    days_since_appearance >=23 ~ 'after'
-  ))# %>%
-  #filter(days_since_appearance<16) # let's only look at 1-2 days of post treatment rather than the whole week
+    days_since_appearance >=15 & days_since_appearance < 21 ~ 'posttreatment',
+    days_since_appearance >=22 ~ 'after'
+  ))
 
 # compute active time (where dwell = active + idle time)
 activity_tbl = dwell_stages_tbl %>% 
-  #filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>%
-  filter(domain != 'youtube.com' & domain != 'google.com') %>%
-  filter(domain != 'youtube.com' & domain != 'facebook.com') %>%
-  #filter(domain != 'google.com') %>%
+  #filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% 
   mutate(total_active_time = total_dwell_time - total_idle_time) %>%
   filter(total_active_time < 5000) %>% # remove clients with active time greater than 99.999%
   sdf_register('activity_tbl')
@@ -114,12 +110,17 @@ ggplot(ecdf_activedays_df, aes(nn)) + stat_ecdf(geom='step') +
   theme_bw() +
   labs(title = "Cumulative distribution of participant active days", subtitle = "Over all study periods")
 
-ggplot(ecdf_activedays_df, aes(nn, fill=branch)) + geom_histogram(binwidth=1,position='dodge') + 
-  scale_fill_canva(palette='Clean and crisp') +
-  labs(title = "Observed distribution of participant active days by branch", subtitle = "By branch")
+ggplot(ecdf_activedays_df, aes(nn, fill=branch)) + 
+  geom_histogram(binwidth=1,position='dodge') + 
+  scale_fill_canva(palette='Tropical tones', 
+                    guide=guide_legend(title='', label.position='bottom')) +
+  labs(title = "Observed distribution of participant active days by branch", subtitle = "By branch") +
+  theme_bw() + theme(legend.position="bottom")
 
-ggplot(ecdf_activedays_df, aes(nn, color=branch)) + stat_ecdf(geom='step') + theme_bw()+ 
-  scale_color_canva(palette='Elegant and sophisticated') +
+ggplot(ecdf_activedays_df, aes(nn, color=branch)) + stat_ecdf(geom='step') + 
+  scale_color_canva(palette='Tropical tones', 
+                    guide=guide_legend(title='', label.position='bottom')) +
+  theme_bw()+ theme(legend.position="bottom") +
   labs(title = "Cumulative distribution of participant active days", subtitle = "By branch")
 
 ```
@@ -156,14 +157,17 @@ ggplot(ecdf_activewdays_df, aes(nn)) +
 
 ggplot(ecdf_activewdays_df, aes(nn, fill=branch)) + 
   geom_histogram(binwidth=1,position='dodge') + 
-  theme_bw()+ 
-  scale_fill_canva(palette='Sleek and modern') +
+  scale_fill_canva(palette='Tropical tones', 
+                    guide=guide_legend(title='', label.position='bottom')) +
+  theme_bw()+ theme(legend.position="bottom") +
   labs(title = "New plot title", subtitle = "A subtitle")
 
 ggplot(ecdf_activewdays_df, aes(nn, color=branch)) + 
   stat_ecdf(geom='step') + 
-  theme_bw()+ 
-  scale_color_canva(palette='Modern and minimal') +
+  theme_bw()+ theme(legend.position="bottom") +
+  scale_color_canva(palette='Tropical tones', 
+                    guide=guide_legend(title='', label.position='bottom')) +
+  
   labs(title = "New plot title", subtitle = "A subtitle")
 
 kable(quantile(ecdf_activewdays_df$nn, probs=c(0, .25, .5, .75, .99, .999, .9999, 1)))
@@ -174,9 +178,14 @@ kable(quantile(ecdf_activewdays_df$nn, probs=c(0, .25, .5, .75, .99, .999, .9999
 
 ```{r }
 # # time of day
-activity_tbl %>%
-  group_by(id, visit_start_time) %>%
-  mutate(timestamp = unix_timestamp(as.character(visit_start_time)))
+hours = activity_tbl %>% mutate(timestamp=hour(from_unixtime(visit_start_time))) %>% select(timestamp) %>% group_by(timestamp) %>% count %>% collect
+hours$timestamp = hours(hours$timestamp)
+
+ggplot(hours, aes(x=timestamp, y=n)) + 
+  geom_bar(stat='identity') + 
+  scale_y_continuous(labels=comma) +
+  scale_x_time(labels = date_format("%H:%M")) +
+  theme_bw() 
 ```
 
 
@@ -272,28 +281,33 @@ kable(quantile(daily_active_browsing$total_m, probs=c(0, .25, .5, .75, .99, .999
 ### Length of average site visit
 ```{r avg_sv_plots, cache=TRUE}
 daily_avg_activity=activity_tbl %>%
-   group_by(id, visit_start_date) %>%
+   group_by(id, days_since_appearance) %>%
    summarise(
     mean=mean(total_active_time, na.rm=T),
     n = n()) %>%
-  ungroup %>% group_by(visit_start_date) %>%
+  ungroup %>% group_by(days_since_appearance) %>%
   filter(mean>1) %>%
   collect
 
 ggplot(daily_avg_activity, aes(x=mean)) + 
-  geom_histogram(binwidth=.1) + 
+  geom_histogram(binwidth=.1) +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
   theme_bw()
 
 ggplot(daily_avg_activity, aes(x=log(mean))) + 
   geom_histogram(binwidth=.01) + 
+  scale_y_continuous(labels = comma) +
   theme_bw()
 
-ggplot(daily_avg_activity, aes(x=visit_start_date, y=mean, group=visit_start_date)) + 
+ggplot(daily_avg_activity, aes(x=days_since_appearance, y=mean, group=days_since_appearance)) + 
   geom_boxplot() + 
+  scale_y_continuous(labels = comma) +
   theme_bw()
 
-ggplot(daily_avg_activity, aes(x=visit_start_date, y=log(mean), group=visit_start_date)) + 
+ggplot(daily_avg_activity, aes(x=days_since_appearance, y=log(mean), group=days_since_appearance)) + 
   geom_boxplot() + 
+  scale_y_continuous(labels = comma) +
   theme_bw()
 
 kable(quantile(daily_avg_activity$mean, probs=c(0, .25, .5, .75, .99, .999, .9999, 1)))
@@ -307,32 +321,80 @@ kable(quantile(daily_avg_activity$mean, probs=c(0, .25, .5, .75, .99, .999, .999
 
 # Analysis
 
-## Scored domains
+## Browsing scored domains
 ```{r align_activity, cache=TRUE}
 scored_activity_tbl = activity_tbl %>% 
   inner_join(scored_domains_tbl, copy=T) %>% 
-  select(-domain2, -pioneer_id) %>%
+  select(-domain2) %>%
   mutate(scored_active_time = total_active_time * abs(score)) # every session's active time * absolute value of the score
 
 align_dist = scored_activity_tbl %>%
   group_by(id, score, branch, stage) %>%
   summarise(scored_active=mean(log(total_active_time), na.rm=T)*abs(score)) %>%
-  filter(stage != 'treatment') %>%
+  filter(stage == 'pretreatment' & stage == 'posttreatment') %>%
   collect
   
 ggplot(align_dist, aes(
   x=scored_active,
   fill=stage)) + 
-  geom_histogram(binwidth=.01, position='dodge') + 
-  facet_wrap(~branch, ncol=1) +
+  geom_density() + 
+  theme_bw() + theme(legend.position='bottom') +
   labs(title = "New plot title", subtitle = "A subtitle")
 ```
 
 
-## Distribution of visits across scored domains
+```{r}
+
+plot = scaled_browsing %>% group_by(id, branch,days_since_appearance) %>% select(id, days_since_appearance, scaled_active_bias_s) %>% collect
+
+ggplot(plot, aes(
+  x=scaled_active_bias_s,
+  fill=branch
+)) + geom_density() +
+  theme_bw()
+```
+
+## Browsing scored domains by partisan group
+
+```{r}
+daily_pid_scored_sessions = scored_activity_tbl %>% inner_join(valids_tbl) %>%
+  filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% 
+  inner_join(pid_tbl) %>%
+  group_by(id, pid, score, days_since_appearance) %>%
+  summarise(
+    total_active_time_s = sum(total_active_time, na.rm=T)) %>%
+  ungroup %>% group_by(id, score, pid) %>%
+  filter(pid == 'D' | pid == 'R' | pid == 'I') %>%
+  collect
+
+
+
+daily_pid_scored_browsing %>% scored_activity_tbl %>% inner_join(valids_tbl) %>%
+  filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% 
+  inner_join(pid_tbl) %>%
+  group_by(pid, days_since_appearance) %>%
+  summarise(
+   daily_sum_time = sum(total_active_time_s, na.rm=T),
+   daily_avg_time = mean(total_active_time_s, na.rm=T)) %>%
+  collect
+
+
+ggplot(daily_pid_scored_browsing, aes(
+  x=score,
+  fill=pid, 
+  alpha=0.5)) + stat_density(position='dodge') + theme_bw()
+
+
+ggplot(daily_pid_scored_browsing, aes(
+  x=reorder(score, score), y=daily_sum_time, fill=pid))+ geom_histogram(stat='identity', position='dodge')
+
+```
+
+## Effect of treatments on browsing
 ```{r maineffect, cache=TRUE}
 
 scaled_browsing = scored_activity_tbl %>%
+  filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% 
   group_by(id, stage, branch, days_since_appearance) %>%
   summarise(
     scored_active_time_s = sum(scored_active_time, na.rm=T),
@@ -361,14 +423,3 @@ summary(fit2)
 dat = ggpredict(fit2, terms = c('pretreatment','condition'))
 plot(dat, facet=T) + theme_bw()
 ```
-
-```{r}
-
-plot = scaled_browsing %>% group_by(id, days_since_appearance) %>% select(id, days_since_appearance, scaled_active_bias_s) %>% collect
-
-ggplot(plot, aes(
-  x=scaled_active_bias_s
-)) + geom_density() +
-  theme_bw()
-```
-
