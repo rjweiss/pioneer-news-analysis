@@ -26,6 +26,7 @@ library(tidyr)
 library(magrittr)
 library(ggthemes)
 library(knitr)
+library(sjPlot)
 library(pander)
 library(ggeffects)
 
@@ -50,17 +51,11 @@ sc <- spark_connect(master = "yarn-client", version = "1.6.2", config = config)
 #dwell_parquet_dir = 's3://net-mozaws-data-us-west-2-data-pioneer-analysis/online_news_v2/dwell_time_complete/'
 dwell_parquet_dir = 's3://net-mozaws-data-us-west-2-data-pioneer-analysis/online_news_v2/dwell_time_new_handling/'
 dwell_tbl = spark_read_parquet(sc, name='dwell_tbl', path=dwell_parquet_dir, repartition=500, memory=F) %>%
-  select(-document_ids, log_events) #%>% compute('dwell_tbl')
-  #sdf_register('dwell_tbl')
+  select(-document_ids, log_events)
 
-#scored_domains_tbl = sdf_broadcast(scored_domains)#, overwrite = T)
-#scored_dwell_tbl = dwell_tbl %>% inner_join(scored_domains_tbl) %>% compute('scored_dwell_tbl')#%>% sdf_register('scored_dwell_tbl')
-# ```
-# 
-# ```{r activity_tbl, echo=FALSE, cache=TRUE}
 dwell_clean_tbl = dwell_tbl %>% 
   filter(visit_start_date > "2018-01-01" & visit_start_date <"2018-05-01") %>% # remove odd clients, likely clock skew
-  filter(days_since_appearance > 0 & days_since_appearance < 23) %>% # only look at study periods
+  filter(days_since_appearance > 0 & days_since_appearance < 22) %>% # only look at study periods
   ft_string_indexer(input_col='pioneer_id', output_col='id') #%>% # recode pioneer ids
 
 # annotate site session events per client with likely stage of study
@@ -69,7 +64,7 @@ dwell_stages_tbl = dwell_clean_tbl %>%
     days_since_appearance == 0 ~ 'enrollment',
     days_since_appearance > 0 & days_since_appearance < 8 ~ 'pretreatment',
     days_since_appearance >= 8 & days_since_appearance < 15 ~ 'treatment',
-    days_since_appearance >=15 & days_since_appearance < 21 ~ 'posttreatment',
+    days_since_appearance >=15 & days_since_appearance < 22 ~ 'posttreatment',
     days_since_appearance >=22 ~ 'after'
   ))
 
@@ -79,28 +74,6 @@ activity_tbl = dwell_stages_tbl %>%
   mutate(total_active_time = total_dwell_time - total_idle_time) %>%
   filter(total_active_time < 5000) %>% # remove clients with active time greater than 99.999%
   compute('activity_tbl')
-  #sdf_register('activity_tbl') 
-
-# annotate site session events per client with likely stage of study
-# scored_activity_tbl = scored_dwell_tbl %>% 
-#   filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% # remove these sites as they are a huge amount of time
-#   filter(visit_start_date > "2018-01-01" & visit_start_date <"2018-05-01") %>% # remove odd clients, likely clock skew
-#   filter(days_since_appearance > 0 & days_since_appearance < 23) %>% # only look at study periods
-#   mutate(stage = case_when(
-#     days_since_appearance == 0 ~ 'enrollment',
-#     days_since_appearance > 0 & days_since_appearance < 8 ~ 'pretreatment',
-#     days_since_appearance >= 8 & days_since_appearance < 15 ~ 'treatment',
-#     days_since_appearance >=15 & days_since_appearance < 21 ~ 'posttreatment',
-#     days_since_appearance >=22 ~ 'after')) %>%
-#   mutate(total_active_time = total_dwell_time - total_idle_time,
-#          scored_active_time = score * total_active_time) %>%
-#   filter(total_active_time < 5000) %>% # remove clients with active time greater than 99.999%
-#   #sdf_register('scored_activity_tbl')
-#   compute('scored_activity_tbl')
-#Sys.sleep(60)
-# cache table for faster compute
-#tbl_cache(sc, 'activity_tbl')
-#tbl_cache(sc, 'scored_activity_tbl')
 ```
 
 
@@ -226,7 +199,7 @@ ggplot(ecdf_activewdays_df, aes(nn, color=branch)) +
 
   labs(title = "New plot title", subtitle = "A subtitle")
 
-kable(quantile(ecdf_activewdays_df$nn, probs=c(0, .25, .5, .75, .99, .999, .9999, 1)))
+pander(quantile(ecdf_activewdays_df$nn, probs=c(0, .25, .5, .75, .99, .999, .9999, 1)))
 
 ```
 
@@ -276,7 +249,7 @@ ggplot(daily_pagevisits, aes(x=log(mu))) +
   theme_bw() +
   labs(title = "New plot title", subtitle = "A subtitle")
 
-kable(quantile(daily_pagevisits$mu, probs=c(0, .25, .5, .75, .99, .999, .9999, 1)))
+pander(quantile(daily_pagevisits$mu, probs=c(0, .25, .5, .75, .99, .999, .9999, 1)))
 
 
 ```
@@ -327,7 +300,7 @@ ggplot(daily_active_browsing, aes(x=log(total_m))) +
   theme_bw() +
   labs(title = "New plot title", subtitle = "A subtitle")
 
-kable(quantile(daily_active_browsing$total_m, probs=c(0, .25, .5, .75, .99, .999, .9999, 1)))
+pander(quantile(daily_active_browsing$total_m, probs=c(0, .25, .5, .75, .99, .999, .9999, 1)))
 
 ```
 
@@ -370,7 +343,7 @@ kable(quantile(daily_avg_activity$mean, probs=c(0, .25, .5, .75, .99, .999, .999
 
 ## Self report
 
-```{r echo=FALSE}
+```{r echo=FALSE, message=FALSE, warning=F, cache=T}
 source('/home/hadoop/analyses/rweiss/pioneer-news-analysis/survey_recoding.R')
 ```
 
@@ -382,37 +355,6 @@ source('/home/hadoop/analyses/rweiss/pioneer-news-analysis/survey_recoding.R')
 # Analysis
 
 ## Browsing scored domains
-```{r align_activity, cache=TRUE}
-# scored_activity_tbl = activity_tbl %>%
-#  inner_join(scored_domains_tbl)# %>%
-  
-
-# align_dist = scored_activity_tbl %>%
-#   #mutate(scored_active_time = total_active_time * abs(score)) %>% # every session's active time * absolute value of the score
-#   group_by(id, score, branch, stage) %>%
-#   summarise(scored_active=mean(log(total_active_time), na.rm=T)*abs(score)) %>%
-#   filter(stage == 'pretreatment' & stage == 'posttreatment') %>%
-#   collect
-#   
-# ggplot(align_dist, aes(
-#   x=scored_active,
-#   fill=stage)) + 
-#   geom_density() + 
-#   theme_bw() + theme(legend.position='bottom') +
-#   labs(title = "New plot title", subtitle = "A subtitle")
-```
-
-
-```{r scaled_browsing}
-
-# df = scaled_browsing %>% group_by(id, branch,days_since_appearance) %>% select(id, days_since_appearance, scaled_active_bias_s) %>% collect
-# 
-# ggplot(df, aes(
-#   x=scaled_active_bias_s,
-#   fill=branch
-# )) + geom_density() +
-#   theme_bw()
-```
 
 ## Browsing scored domains by partisan group
 
@@ -465,12 +407,6 @@ ggplot(daily_pid_scored_sessions, aes(
 
 ggplot(bias_scores, aes(x=avgAlign)) + stat_density(trim=T)
 
-#ggplot(daily_pid_scored_browsing, aes(
-#  x=reorder(score, score), fill=pid)) +
-#  geom_density()
-  
-  #geom_histogram(stat='identity', position='dodge') 
-
 ```
 
 ## Effect of treatments on browsing
@@ -500,46 +436,87 @@ treatment_spark = scaled_browsing %>%
          condition = case_when(
            branch=='control'~'Control',
            branch=='treatment-bias'~'Treatment',
-           branch=='treatment-whois'~'APlacebo'))
+           branch=='treatment-whois'~'APlacebo')) 
 
-library(pander)
-library(sjPlot)
-fit1_xcontrol = glm(data=treatment_spark, formula=posttreatment~pretreatment + branch)
-#pander(fit1)
-summary(fit1_xcontrol)
-#sjPlot::plot_model(fit1_xcontrol) #+ theme_bw()
+fit_main_xcontrol = glm(data=treatment_spark, formula=posttreatment~pretreatment + branch)
+fit_main_xplacebo = glm(data=treatment_spark, formula=posttreatment~pretreatment + condition)
+fit_int_xplacebo = glm(data=treatment_spark, formula=posttreatment~pretreatment*condition + condition)
+fit_int_xcontrol = glm(data=treatment_spark, formula=posttreatment~pretreatment*branch + branch)
 
-fit1_xplacebo = glm(data=treatment_spark, formula=posttreatment~pretreatment + condition)
-#sjPlot::plot_model(fit1_xplacebo) #+ theme_bw()
-summary(fit1_xplacebo)
+sjt.lm(fit_main_xcontrol,fit_main_xplacebo,
+        show.header = T,
+        emph.p=T, 
+        show.ci=T,
+        digits.est = 3,
+        digits.ci = 2,
+        separate.ci.col = T,
+        string.est = "Estimate",
+        string.ci = "Conf. Int.",
+        string.p = "p-value",
+        string.dv = "Response",
+        string.pred = "Coefficients",
+        p.numeric = T)
 
-fit2 = glm(data=treatment_spark, formula=posttreatment~pretreatment*branch + branch)
-#pander(fit2)
-summary(fit2)
-#sjPlot::plot_model(fit2)
+sjt.lm(fit_int_xplacebo, fit_int_xcontrol,
+        show.header = T,
+        emph.p=T, 
+        show.ci=T,
+        digits.est = 3,
+        digits.ci = 2,
+        separate.ci.col = T,
+        string.est = "Estimate",
+        string.ci = "Conf. Int.",
+        string.p = "p-value",
+        string.dv = "Response",
+        string.pred = "Coefficients",
+        p.numeric = T)
 
-fit2b = glm(data=treatment_spark, formula=posttreatment~pretreatment*condition + condition)
-sjPlot::plot_model(fit2b)
-summary(fit2b)
 
 
-#install.packages("ggeffects")
-library(ggeffects)
-dat = ggeffects::ggpredict(fit2, terms = c('pretreatment','branch'))
-plot(dat, facet=T) + theme_bw()
+sjPlot::plot_model(fit_main_xcontrol,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
+sjPlot::plot_model(fit_main_xplacebo,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
 
-datb = ggeffects::ggpredict(fit2b, terms = c('pretreatment','condition'))
-plot(datb, facet=T) + theme_bw()
+sjPlot::plot_model(fit_int_xcontrol,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
+
+sjPlot::plot_model(fit_int_xplacebo,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
+
+
+
+dat = ggeffects::ggpredict(fit_int_xcontrol, terms = c('pretreatment','branch'))
+plot(dat) + theme_bw()
+
+datb = ggeffects::ggpredict(fit_int_xplacebo, terms = c('pretreatment','condition'))
+plot(datb) + theme_bw()
 
 ```
-```{r}
 
-# scored_activity_tbl = activity_tbl %>%
-#  inner_join(scored_domains_tbl) %>%
-#  filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% 
-#  mutate(total_active_time = total_dwell_time - total_idle_time,
-#         scored_active_time = score * total_active_time) %>%
-#  filter(total_active_time < 5000) #%>% # remove clients with active time greater than 99.999%
+dddd
+
+```{r warning=F, echo=F}
 
 scaled_browsing_pid = scored_activity_tbl %>%
   inner_join(pid_tbl) %>%
@@ -563,32 +540,76 @@ treatment_pid_spark = scaled_browsing_pid %>%
       branch=='treatment-whois'~'APlacebo'
     ))
 
-fit1_xcontrol = glm(data=treatment_pid_spark, formula=posttreatment~pretreatment + branch + pid)
-#pander(fit1)
-sjPlot::plot_model(fit1_xcontrol) 
-summary(fit1_xcontrol)
+fit_pid_main_xcontrol = glm(data=treatment_pid_spark, formula=posttreatment~pretreatment + branch + pid)
+fit_pid_main_xplacebo = glm(data=treatment_pid_spark, formula=posttreatment~pretreatment + condition + pid)
+fit_pid_int_xcontrol = glm(data=treatment_pid_spark, formula=posttreatment~pretreatment + branch* pid)
+fit_pid_int_xplacebo = glm(data=treatment_pid_spark, formula=posttreatment~pretreatment + condition*pid)
 
-fit1_xplacebo = glm(data=treatment_pid_spark, formula=posttreatment~pretreatment + condition + pid)
-sjPlot::plot_model(fit1_xplacebo) #+ theme_bw()
-summary(fit1_xplacebo)
+sjt.lm(fit_pid_main_xcontrol,fit_pid_main_xplacebo,
+        show.header = T,
+        emph.p=T, 
+        show.ci=T,
+        digits.est = 3,
+        digits.ci = 2,
+        separate.ci.col = T,
+        string.est = "Estimate",
+        string.ci = "Conf. Int.",
+        string.p = "p-value",
+        string.dv = "Response",
+        string.pred = "Coefficients",
+        p.numeric = T)
 
-fit2 = glm(data=treatment_pid_spark, formula=posttreatment~pretreatment + branch* pid)
-#pander(fit2)
-sjPlot::plot_model(fit2)
-summary(fit2)
 
-fit2b = glm(data=treatment_pid_spark, formula=posttreatment~pretreatment + condition*pid)
-sjPlot::plot_model(fit2b)
-summary(fit2b)
+sjt.lm(fit_pid_int_xcontrol,fit_pid_int_xplacebo,
+        show.header = T,
+        emph.p=T, 
+        show.ci=T,
+        digits.est = 3,
+        digits.ci = 2,
+        separate.ci.col = T,
+        string.est = "Estimate",
+        string.ci = "Conf. Int.",
+        string.p = "p-value",
+        string.dv = "Response",
+        string.pred = "Coefficients",
+        p.numeric = T)
+
+sjPlot::plot_model(fit_pid_main_xcontrol,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
+sjPlot::plot_model(fit_pid_main_xplacebo,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
+
+sjPlot::plot_model(fit_pid_int_xcontrol,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
+
+sjPlot::plot_model(fit_pid_int_xplacebo,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
 
 
-#install.packages("ggeffects")
-library(ggeffects)
-dat = ggeffects::ggpredict(fit2, terms = c('pretreatment','pid', 'branch'))
+dat = ggeffects::ggpredict(fit_pid_int_xcontrol, terms = c('pretreatment','pid', 'branch'))
 plot(dat) + theme_bw()
 
-datb = ggeffects::ggpredict(fit2b, terms = c('pretreatment','pid', 'condition'))
+datb = ggeffects::ggpredict(fit_pid_int_xplacebo, terms = c('pretreatment', 'pid', 'condition'))
 plot(datb) + theme_bw()
-
 ```
 
