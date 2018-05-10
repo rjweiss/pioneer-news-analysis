@@ -1,0 +1,182 @@
+---
+title: "Sol's pecification"
+author: "Rebecca"
+date: "5/9/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#install.packages('lubridate')
+#install.packages('stringr')
+# install.packages("ggthemes")
+# install.packages("pander")
+# install.packages('ggeffects')
+library(lubridate)
+library(sparklyr)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(jsonlite)
+library(stringr)
+library(fuzzyjoin)
+library(tidyr)
+library(magrittr)
+library(ggthemes)
+library(knitr)
+library(sjPlot)
+library(pander)
+library(ggeffects)
+library(lme4)
+
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+  cache.path = '/home/hadoop/analyses/rweiss/pioneer-news-analysis/cache/',
+  cache.extra = list(R.version, sessionInfo(), format(Sys.Date(), '%Y-%m')),
+  fig.path = "fig/")
+  
+
+#spark config
+Sys.setenv(SPARK_HOME='/usr/lib/spark')
+config <- spark_config()
+config$spark.driver.memory <- "5G"
+config$spark.executor.memory <- "10G"
+#config$spark.yarn.executor.memoryOverhead <- "1G"
+config$spark.executor.cores <- 15
+config$spark.executor.instances <- 10
+config$spark.sql.shuffle.partitions <- 320
+sc <- spark_connect(master = "yarn-client", version = "1.6.2", config = config)
+
+#dwell_parquet_dir = 's3://net-mozaws-data-us-west-2-data-pioneer-analysis/online_news_v2/dwell_time_complete/'
+dwell_parquet_dir = 's3://net-mozaws-data-us-west-2-data-pioneer-analysis/online_news_v2/dwell_time_new_handling/'
+dwell_tbl = spark_read_parquet(sc, name='dwell_tbl', path=dwell_parquet_dir, repartition=500, memory=F) %>% 
+  select(-document_ids, -log_events, -nav_event_count)
+
+activity_tbl = dwell_tbl %>% 
+  filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% 
+  filter(visit_start_date > "2018-01-01" & visit_start_date <"2018-05-01") %>% # remove odd clients, likely clock skew
+  filter(days_since_appearance > 0 & days_since_appearance < 22) %>% # only look at study periods
+  ft_string_indexer(input_col='pioneer_id', output_col='id') %>% # recode pioneer ids
+  mutate(
+    stage = case_when(
+      days_since_appearance == 0 ~ 'enrollment',
+      days_since_appearance > 0 & days_since_appearance < 8 ~ 'pretreatment',
+      days_since_appearance >= 8 & days_since_appearance < 15 ~ 'treatment',
+      days_since_appearance >=15 & days_since_appearance < 22 ~ 'posttreatment',
+      days_since_appearance >=22 ~ 'after'),
+    total_active_time = total_dwell_time - total_idle_time) %>%
+  filter(total_active_time < 5000) %>% # remove clients with active time greater than 99.999%
+  compute('activity_tbl')
+
+source('/home/hadoop/analyses/rweiss/pioneer-news-analysis/survey_recoding.R')
+
+bias_json = 'https://raw.githubusercontent.com/mozilla/pioneer-study-online-news-2/master/extension/bias-domains.json'
+whois_json = 'https://raw.githubusercontent.com/mozilla/pioneer-study-online-news-2/master/extension/whois-domains.json'
+bias_scores = fromJSON(bias_json)
+whois_scores = fromJSON(whois_json)
+bias_scores$domain = str_replace(bias_scores$domain, 'www.','')
+
+domains = dwell_tbl %>% group_by(domain) %>% count %>% collect
+scored_domains = inner_join(bias_scores, domains, by='domain')
+names(scored_domains) = c('domain', 'score','n')
+scored_domains_tbl = sdf_copy_to(sc,scored_domains, overwrite = T)
+
+# scored_activity_tbl = activity_tbl %>%
+#  inner_join(scored_domains_tbl) %>%
+#  filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% 
+#  mutate(total_active_time = total_dwell_time - total_idle_time,
+#         scored_active_time = score * total_active_time) %>%
+#  filter(total_active_time < 5000) #%>% # remove clients with active time greater than 99.999%
+
+pid_tbl = sdf_copy_to(sc,pid, overwrite=T)
+valids_tbl = sdf_copy_to(sc,valids,overwrite=T)
+
+#browsing_tbl = scored_activity_tbl %>%
+browsing_tbl = activity_tbl %>%
+  inner_join(scored_domains_tbl) %>%
+  #group_by(id, stage, branch, domain, score) %>%
+  group_by(id, stage, days_since_appearance, branch, domain, score) %>%
+  summarise(
+    mean_active_time_s = mean(total_active_time, na.rm=T),
+    total_active_time_s = sum(total_active_time, na.rm=T)) %>%
+  compute('browsing_tbl') 
+
+head(browsing_tbl)
+
+```
+
+# Data prep
+
+
+```{r}
+#browsing_tbl %>% arrange(domain)
+```
+
+
+
+
+```{r}
+browsing_tbl %>% 
+  sdf_pivot(id + days_since_appearance + branch + domain + score + mean_active_time_s + total_active_time_s ~ stage) %>% # creates columns for stage dummy
+  na.replace(0) %>% # replaces NaNs with 0s in the stage dummy matrix
+  filter(id==1098 & domain=='aol.com')
+
+```
+# Specification 1
+
+Posttreatment - mean( post-treatment average time on site x bias of site )
+Pretreatment - mean( pre-treatment average time on site x bias of site )
+Branch - bias, whois, control
+
+Unit of analysis is single user
+
+```{r}
+spec1_tbl = browsing_tbl %>% 
+  filter(stage != 'treatment') %>%
+  sdf_pivot(id + days_since_appearance + domain + score + branch + mean_active_time_s ~ stage) %>%
+  mutate(
+    posttreatment = posttreatment*mean_active_time_s, # fill treatment dummy with mean value
+    pretreatment = pretreatment*mean_active_time_s # fill treatment dummy with mean value
+  ) %>%
+  group_by(id, domain) %>%
+  select(-mean_active_time_s) %>%
+  mutate(
+   posttreatment = log(sum(posttreatment, na.rm=T)),
+   pretreatment = log(sum(pretreatment, na.rm=T))
+  ) %>%
+  filter(row_number(id) == 1) %>% ungroup()
+```
+
+# Specification 2
+Average time on site (post) ~ Average time on site (pre) + alignment (bias) * branch + (1|site)
+
+
+```{r}
+spec2_tbl = browsing_tbl %>% 
+  filter(stage != 'treatment') %>%
+  sdf_pivot(id + domain + score + branch + mean_active_time_s ~ stage) %>% # creates columns for stage dummy
+  mutate(
+    posttreatment = posttreatment*mean_active_time_s,
+    pretreatment = pretreatment*mean_active_time_s
+  ) %>%
+  group_by(id, domain) %>%
+  select(-mean_active_time_s) %>%
+  mutate(
+   posttreatment = log(sum(posttreatment, na.rm=T)),
+   pretreatment = log(sum(pretreatment, na.rm=T))
+  ) %>%
+  filter(row_number(id) == 1) %>% ungroup() %>%
+  collect
+```
+
+```{r}
+
+fit1 = lmer(posttreatment ~ pretreatment + abs(score) * branch + (1|id), data=spec1_tbl)
+sjt.lmer(fit1)
+plot_model(fit1, rm.terms = 'pretreatment')
+
+fit2 = lmer(posttreatment ~ pretreatment + abs(score) * branch + (1|domain), data=spec2_tbl)
+sjt.lmer(fit2)
+plot_model(fit2, rm.terms = 'pretreatment')
+
+```
+
