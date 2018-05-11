@@ -2,7 +2,8 @@
 title: "Sol's pecification"
 author: "Rebecca"
 date: "5/9/2018"
-output: html_document
+output: html_document:
+    keep_md: true
 ---
 
 ```{r setup, include=FALSE}
@@ -52,16 +53,16 @@ dwell_tbl = spark_read_parquet(sc, name='dwell_tbl', path=dwell_parquet_dir, rep
   select(-document_ids, -log_events, -nav_event_count)
 
 activity_tbl = dwell_tbl %>% 
-  filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% 
+  filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com' & domain != 'youtube.com') %>% 
   filter(visit_start_date > "2018-01-01" & visit_start_date <"2018-05-01") %>% # remove odd clients, likely clock skew
   filter(days_since_appearance > 0 & days_since_appearance < 22) %>% # only look at study periods
   ft_string_indexer(input_col='pioneer_id', output_col='id') %>% # recode pioneer ids
   mutate(
     stage = case_when(
       days_since_appearance == 0 ~ 'enrollment',
-      days_since_appearance > 0 & days_since_appearance < 8 ~ 'pretreatment',
-      days_since_appearance >= 8 & days_since_appearance < 15 ~ 'treatment',
-      days_since_appearance >=15 & days_since_appearance < 22 ~ 'posttreatment',
+      days_since_appearance > 0 & days_since_appearance < 7 ~ 'pretreatment',
+      days_since_appearance >= 7 & days_since_appearance < 14 ~ 'treatment',
+      days_since_appearance >=14 & days_since_appearance < 21 ~ 'posttreatment',
       days_since_appearance >=22 ~ 'after'),
     total_active_time = total_dwell_time - total_idle_time) %>%
   filter(total_active_time < 5000) %>% # remove clients with active time greater than 99.999%
@@ -80,42 +81,25 @@ scored_domains = inner_join(bias_scores, domains, by='domain')
 names(scored_domains) = c('domain', 'score','n')
 scored_domains_tbl = sdf_copy_to(sc,scored_domains, overwrite = T)
 
-# scored_activity_tbl = activity_tbl %>%
-#  inner_join(scored_domains_tbl) %>%
-#  filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% 
-#  mutate(total_active_time = total_dwell_time - total_idle_time,
-#         scored_active_time = score * total_active_time) %>%
-#  filter(total_active_time < 5000) #%>% # remove clients with active time greater than 99.999%
-
 pid_tbl = sdf_copy_to(sc,pid, overwrite=T)
 valids_tbl = sdf_copy_to(sc,valids,overwrite=T)
 
-#browsing_tbl = scored_activity_tbl %>%
-browsing_tbl = activity_tbl %>%
+scored_browsing_tbl = activity_tbl %>%
   inner_join(scored_domains_tbl) %>%
-  #group_by(id, stage, branch, domain, score) %>%
   group_by(id, stage, days_since_appearance, branch, domain, score) %>%
   summarise(
     mean_active_time_s = mean(total_active_time, na.rm=T),
     total_active_time_s = sum(total_active_time, na.rm=T)) %>%
-  compute('browsing_tbl') 
+  compute('scored_browsing_tbl') 
 
-head(browsing_tbl)
+head(scored_browsing_tbl)
 
 ```
 
 # Data prep
 
-
 ```{r}
-#browsing_tbl %>% arrange(domain)
-```
-
-
-
-
-```{r}
-browsing_tbl %>% 
+scored_browsing_tbl %>% 
   sdf_pivot(id + days_since_appearance + branch + domain + score + mean_active_time_s + total_active_time_s ~ stage) %>% # creates columns for stage dummy
   na.replace(0) %>% # replaces NaNs with 0s in the stage dummy matrix
   filter(id==1098 & domain=='aol.com')
@@ -123,14 +107,163 @@ browsing_tbl %>%
 ```
 # Specification 1
 
+```{r}
+scored_browsing_tbl %>% 
+  filter(stage != 'treatment') %>%
+  group_by(id, domain, score, mean_active_time_s, days_since_appearance) %>%
+  mutate(
+    scored_active_time_s = mean_active_time_s * abs(score)
+  ) %>%
+  filter(id==1098 & domain=='aol.com')
+
+```
+
+```{r}
+tmp = scored_browsing_tbl %>% 
+  filter(stage != 'treatment') %>%
+  group_by(id, domain, score, mean_active_time_s, days_since_appearance) %>%
+  mutate(
+    scored_active_time_s = mean_active_time_s * abs(score) # gets site * score of site
+  ) %>%
+  ungroup %>% group_by(id, days_since_appearance, total_active_time_s) %>%
+  mutate(
+    total_perday_active_time_s = sum(total_active_time_s, na.rm=T) # computes total active time on scored domains for the day
+  ) 
+
+tmp
+sdf_quantile(tmp, column='scored_active_time_s', probabilities=c(0,.25,.5,.75,.9,.99,.999,1))
+sdf_quantile(tmp, column='total_perday_active_time_s', probabilities=c(0,.25,.5,.75,.9,.99,.999,1))
+
+```
+
+```{r}
+# scored_browsing_tbl %>% 
+#   filter(stage != 'treatment') %>%
+#   group_by(id, domain, score, mean_active_time_s, days_since_appearance) %>%
+#   mutate(
+#     scored_perday_active_time_s = mean_active_time_s * abs(score) # gets site * score of site
+#   ) %>%
+#   ungroup %>% group_by(id, days_since_appearance, total_active_time_s) %>%
+#   mutate(
+#     total_perday_active_time_s = sum(total_active_time_s, na.rm=T) # computes total active time on scored domains for the day
+#   ) %>%
+#   sdf_pivot(id + days_since_appearance + domain + branch + scored_perday_active_time_s + total_perday_active_time_s ~ stage) %>%
+#   mutate(
+#     scaled_scored_active_time_s = scored_perday_active_time_s/total_perday_active_time_s
+#   ) %>% select(-scored_perday_active_time_s, -total_perday_active_time_s) %>%
+#   filter(id==1098 & domain=='aol.com')
+```
+```{r}
+# options(scipen=10000)
+# scored_browsing_tbl %>%
+#   filter(stage != 'treatment') %>%
+#   group_by(id, domain, score, mean_active_time_s, days_since_appearance) %>%
+#   mutate(
+#     scored_perday_active_time_s = mean_active_time_s * abs(score) # gets site * score of site
+#   ) %>%
+#   ungroup %>% group_by(id, days_since_appearance, total_active_time_s) %>%
+#   mutate(
+#     total_perday_active_time_s = sum(total_active_time_s, na.rm=T) # computes total active time on scored domains for the day
+#   ) %>%
+#   sdf_pivot(id + days_since_appearance + domain + branch + scored_perday_active_time_s + total_perday_active_time_s ~ stage) %>%
+#   mutate(
+#     scaled_scored_active_time_s = scored_perday_active_time_s/total_perday_active_time_s
+#   ) %>% select(-scored_perday_active_time_s, -total_perday_active_time_s) %>%
+#   sdf_quantile(column='scaled_scored_active_time_s', probabilities=c(0,.25,.5,.75,.9,.99,.999,1))
+```
+
+```{r}
+
+
+
+```
+
+```{r}
+scored_browsing_tbl %>% 
+  filter(stage != 'treatment') %>%
+  group_by(id, domain, score, mean_active_time_s, days_since_appearance) %>%
+  mutate(
+    scored_active_time_s = mean_active_time_s * abs(score) # gets site * score of site
+  ) %>%
+  filter(id==1098 & domain=='aol.com') %>% ungroup %>%
+  select(-total_active_time_s, -mean_active_time_s, -score)
+```
+
+```{r}
+scored_browsing_tbl %>% 
+  filter(stage != 'treatment') %>%
+  group_by(id, domain, score, mean_active_time_s, days_since_appearance) %>%
+  mutate(
+    scored_active_time_s = mean_active_time_s * abs(score) # gets site * score of site
+  ) %>%
+  ungroup %>% select(-mean_active_time_s, -score) %>%
+  group_by(id, stage, branch) %>%
+  mutate(
+    avg_scored_active_time_s = mean(scored_active_time_s, na.rm=T)
+  ) %>% 
+  ungroup %>% select(-scored_active_time_s, -total_active_time_s, -domain) %>%
+  sdf_pivot(id + branch + avg_scored_active_time_s ~ stage) %>%
+  mutate(
+     posttreatment = (posttreatment/posttreatment)*avg_scored_active_time_s, # fill treatment dummy with mean value
+     pretreatment = (pretreatment/pretreatment)*avg_scored_active_time_s # fill treatment dummy with mean value
+   ) %>% 
+  ungroup %>% select(-avg_scored_active_time_s) %>% group_by(id, branch) %>%
+  mutate(
+   posttreatment = sum(posttreatment, na.rm=T),
+   pretreatment = sum(pretreatment, na.rm=T)
+  )
+```
+```{r}
+spec1a_tbl = scored_browsing_tbl %>% 
+  filter(stage != 'treatment') %>%
+  group_by(id, domain, score, mean_active_time_s, days_since_appearance) %>%
+  mutate(
+    scored_active_time_s = mean_active_time_s * abs(score) # gets site * score of site
+  ) %>%
+  ungroup %>%
+  select(-mean_active_time_s, -score) %>%
+  group_by(id, stage, branch) %>%
+  mutate(
+    avg_scored_active_time_s = mean(scored_active_time_s, na.rm=T)
+  ) %>% 
+  ungroup %>% select(-scored_active_time_s, -total_active_time_s, -domain) %>%
+  sdf_pivot(id + branch + avg_scored_active_time_s ~ stage) %>%
+  mutate(
+     posttreatment = (posttreatment/posttreatment)*avg_scored_active_time_s, # fill treatment dummy with mean value
+     pretreatment = (pretreatment/pretreatment)*avg_scored_active_time_s # fill treatment dummy with mean value
+   ) %>% 
+  ungroup %>% group_by(id, branch) %>%
+  mutate(
+   posttreatment = sum(posttreatment, na.rm=T),
+   pretreatment = sum(pretreatment, na.rm=T)
+  ) %>%
+  collect %>%
+  distinct(id, .keep_all=T)
+```
+
 Posttreatment - mean( post-treatment average time on site x bias of site )
 Pretreatment - mean( pre-treatment average time on site x bias of site )
 Branch - bias, whois, control
 
 Unit of analysis is single user
+```{r}
+paste('Number of missing posttreatments =', sum(is.na(spec1a_tbl$posttreatment)))
+paste('Number of missing pretreatments =', sum(is.na(spec1a_tbl$pretreatment)))
+paste('Number of rows =', dim(spec1a_tbl)[1])
+
+fit1a = glm(posttreatment ~ pretreatment*branch + branch, data=spec1a_tbl)
+sjt.glm(fit1a)
+plot_model(fit1a, rm.terms = 'pretreatment')
+```
+
+
+
+# Specification 2
+
+Average time on site (post) ~ Average time on site (pre) + alignment (bias) * branch + (1|site)
 
 ```{r}
-spec1_tbl = browsing_tbl %>% 
+spec2a_tbl = scored_browsing_tbl %>% 
   filter(stage != 'treatment') %>%
   sdf_pivot(id + days_since_appearance + domain + score + branch + mean_active_time_s ~ stage) %>%
   mutate(
@@ -143,15 +276,11 @@ spec1_tbl = browsing_tbl %>%
    posttreatment = log(sum(posttreatment, na.rm=T)),
    pretreatment = log(sum(pretreatment, na.rm=T))
   ) %>%
-  filter(row_number(id) == 1) %>% ungroup()
-```
+  na.replace(0) %>%
+  #filter(row_number(id) == 1) %>% ungroup %>%
+  collect
 
-# Specification 2
-Average time on site (post) ~ Average time on site (pre) + alignment (bias) * branch + (1|site)
-
-
-```{r}
-spec2_tbl = browsing_tbl %>% 
+spec2b_tbl = scored_browsing_tbl %>% 
   filter(stage != 'treatment') %>%
   sdf_pivot(id + domain + score + branch + mean_active_time_s ~ stage) %>% # creates columns for stage dummy
   mutate(
@@ -165,18 +294,56 @@ spec2_tbl = browsing_tbl %>%
    pretreatment = log(sum(pretreatment, na.rm=T))
   ) %>%
   filter(row_number(id) == 1) %>% ungroup() %>%
+  na.replace(0) %>%
   collect
+
+spec2c_tbl = scored_browsing_tbl %>%
+  filter(stage != 'treatment') %>%
+  group_by(id, domain, score, mean_active_time_s, days_since_appearance) %>%
+  mutate(
+    scored_avg_perday_active_time_s = mean_active_time_s * abs(score) # gets site * score of site
+  ) %>%
+  ungroup %>%
+  sdf_pivot(id + days_since_appearance + domain + branch + score + scored_avg_perday_active_time_s ~ stage) %>%
+  mutate(
+    posttreatment = log(posttreatment*scored_avg_perday_active_time_s), # fill treatment dummy with mean value
+    pretreatment = log(pretreatment*scored_avg_perday_active_time_s) # fill treatment dummy with mean value
+  ) %>%
+  ungroup %>% select(-scored_avg_perday_active_time_s) %>%
+  group_by(id, domain, score, days_since_appearance) %>%
+  arrange(id, days_since_appearance) %>%
+  na.replace(0) %>%
+  collect
+```
+```{r}
+spec2a_tbl %>% filter(id==1098)
+spec2b_tbl %>% filter(id==1098)
+spec2c_tbl %>% filter(id==1098)
 ```
 
 ```{r}
 
-fit1 = lmer(posttreatment ~ pretreatment + abs(score) * branch + (1|id), data=spec1_tbl)
-sjt.lmer(fit1)
-plot_model(fit1, rm.terms = 'pretreatment')
+spec2a_tbl$branch = factor(spec2a_tbl$branch)
+fit2a = lmer(posttreatment ~ pretreatment + abs(score) * branch + (1|id), data=spec2a_tbl)
+sjt.lmer(fit2a)
+plot_model(fit2a, rm.terms = 'pretreatment')
 
-fit2 = lmer(posttreatment ~ pretreatment + abs(score) * branch + (1|domain), data=spec2_tbl)
-sjt.lmer(fit2)
-plot_model(fit2, rm.terms = 'pretreatment')
+spec2b_tbl$branch = factor(spec2b_tbl$branch)
+fit2b = lmer(posttreatment ~ pretreatment + abs(score) * branch + (1|id), data=spec2b_tbl)
+sjt.lmer(fit2b)
+plot_model(fit2b, rm.terms = 'pretreatment')
+
+spec2c_tbl$branch = factor(spec2c_tbl$branch)
+fit2c = lmer(posttreatment ~ pretreatment + abs(score) * branch + (1|id), data=spec2c_tbl)
+sjt.lmer(fit2c)
+plot_model(fit2c, rm.terms = c('pretreatment', 'abs(score)'))
+```
+
+# Specification 3 
+
+Has average score changed over time?
+
+```{r}
 
 ```
 
