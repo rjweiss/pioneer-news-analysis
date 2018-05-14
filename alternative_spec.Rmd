@@ -1,140 +1,57 @@
 ---
-title: "Sol's pecification"
+title: "Other specifications"
 author: "Rebecca"
 date: "5/9/2018"
-output: html_document:
+output: 
+  html_document:
     keep_md: true
 ---
 
 ```{r setup, include=FALSE}
-#install.packages('lubridate')
-#install.packages('stringr')
-# install.packages("ggthemes")
-# install.packages("pander")
-# install.packages('ggeffects')
-library(lubridate)
-library(sparklyr)
-library(dplyr)
-library(ggplot2)
-library(scales)
-library(jsonlite)
-library(stringr)
-library(fuzzyjoin)
-library(tidyr)
-library(magrittr)
-library(ggthemes)
-library(knitr)
-library(sjPlot)
-library(pander)
-library(ggeffects)
-library(lme4)
-
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(
   cache.path = '/home/hadoop/analyses/rweiss/pioneer-news-analysis/cache/',
   cache.extra = list(R.version, sessionInfo(), format(Sys.Date(), '%Y-%m')),
   fig.path = "fig/")
-  
 
-#spark config
-Sys.setenv(SPARK_HOME='/usr/lib/spark')
-config <- spark_config()
-config$spark.driver.memory <- "5G"
-config$spark.executor.memory <- "10G"
-#config$spark.yarn.executor.memoryOverhead <- "1G"
-config$spark.executor.cores <- 15
-config$spark.executor.instances <- 10
-config$spark.sql.shuffle.partitions <- 320
-sc <- spark_connect(master = "yarn-client", version = "1.6.2", config = config)
-
-#dwell_parquet_dir = 's3://net-mozaws-data-us-west-2-data-pioneer-analysis/online_news_v2/dwell_time_complete/'
-dwell_parquet_dir = 's3://net-mozaws-data-us-west-2-data-pioneer-analysis/online_news_v2/dwell_time_new_handling/'
-dwell_tbl = spark_read_parquet(sc, name='dwell_tbl', path=dwell_parquet_dir, repartition=500, memory=F) %>% 
-  select(-document_ids, -log_events, -nav_event_count)
-
-activity_tbl = dwell_tbl %>% 
-  filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com' & domain != 'youtube.com') %>% 
-  filter(visit_start_date > "2018-01-01" & visit_start_date <"2018-05-01") %>% # remove odd clients, likely clock skew
-  filter(days_since_appearance > 0 & days_since_appearance < 22) %>% # only look at study periods
-  ft_string_indexer(input_col='pioneer_id', output_col='id') %>% # recode pioneer ids
-  mutate(
-    stage = case_when(
-      days_since_appearance == 0 ~ 'enrollment',
-      days_since_appearance > 0 & days_since_appearance < 7 ~ 'pretreatment',
-      days_since_appearance >= 7 & days_since_appearance < 14 ~ 'treatment',
-      days_since_appearance >=14 & days_since_appearance < 21 ~ 'posttreatment',
-      days_since_appearance >=22 ~ 'after'),
-    total_active_time = total_dwell_time - total_idle_time) %>%
-  filter(total_active_time < 5000) %>% # remove clients with active time greater than 99.999%
-  compute('activity_tbl')
-
-source('/home/hadoop/analyses/rweiss/pioneer-news-analysis/survey_recoding.R')
-
-bias_json = 'https://raw.githubusercontent.com/mozilla/pioneer-study-online-news-2/master/extension/bias-domains.json'
-whois_json = 'https://raw.githubusercontent.com/mozilla/pioneer-study-online-news-2/master/extension/whois-domains.json'
-bias_scores = fromJSON(bias_json)
-whois_scores = fromJSON(whois_json)
-bias_scores$domain = str_replace(bias_scores$domain, 'www.','')
-
-domains = dwell_tbl %>% group_by(domain) %>% count %>% collect
-scored_domains = inner_join(bias_scores, domains, by='domain')
-names(scored_domains) = c('domain', 'score','n')
-scored_domains_tbl = sdf_copy_to(sc,scored_domains, overwrite = T)
-
-pid_tbl = sdf_copy_to(sc,pid, overwrite=T)
-valids_tbl = sdf_copy_to(sc,valids,overwrite=T)
-
-scored_browsing_tbl = activity_tbl %>%
-  inner_join(scored_domains_tbl) %>%
-  group_by(id, stage, days_since_appearance, branch, domain, score) %>%
-  summarise(
-    mean_active_time_s = mean(total_active_time, na.rm=T),
-    total_active_time_s = sum(total_active_time, na.rm=T)) %>%
-  compute('scored_browsing_tbl') 
-
-head(scored_browsing_tbl)
+source('/home/hadoop/analyses/rweiss/pioneer-news-analysis/make_browsing_tables.R')
+source('/home/hadoop/analyses/rweiss/pioneer-news-analysis/recode_survey.R')
 
 ```
 
 # Data prep
 
-```{r}
-scored_browsing_tbl %>% 
-  sdf_pivot(id + days_since_appearance + branch + domain + score + mean_active_time_s + total_active_time_s ~ stage) %>% # creates columns for stage dummy
-  na.replace(0) %>% # replaces NaNs with 0s in the stage dummy matrix
-  filter(id==1098 & domain=='aol.com')
+* Data constructed from raw dwell event log data
+* Each row is an individual user initiating a dwell event on a specific URL (truncated to tld+1)
 
+## Schema
+--
+--
+--
+--
+
+```{r}
+head(dwell_tbl)
 ```
+
+* Remove google.com, youtube.com, facebook.com, youtube.com, amazon.com
+* Remove invalid timestamps
+* Remove days outside of study periods
+* Construct variable for indicating stage
+* Compute "active" time as dwell time less idle time on each dwell event
+
+```{r}
+head(activity_tbl)
+```
+
+* Remove all browsing not matched to the alignment scores
+* Compute mean active time per domain on a day in the study
+* Compute total active time per domain on a day in the study
+```{r}
+head(scored_browsing_tbl)
+```
+
 # Specification 1
-
-```{r}
-scored_browsing_tbl %>% 
-  filter(stage != 'treatment') %>%
-  group_by(id, domain, score, mean_active_time_s, days_since_appearance) %>%
-  mutate(
-    scored_active_time_s = mean_active_time_s * abs(score)
-  ) %>%
-  filter(id==1098 & domain=='aol.com')
-
-```
-
-```{r}
-tmp = scored_browsing_tbl %>% 
-  filter(stage != 'treatment') %>%
-  group_by(id, domain, score, mean_active_time_s, days_since_appearance) %>%
-  mutate(
-    scored_active_time_s = mean_active_time_s * abs(score) # gets site * score of site
-  ) %>%
-  ungroup %>% group_by(id, days_since_appearance, total_active_time_s) %>%
-  mutate(
-    total_perday_active_time_s = sum(total_active_time_s, na.rm=T) # computes total active time on scored domains for the day
-  ) 
-
-tmp
-sdf_quantile(tmp, column='scored_active_time_s', probabilities=c(0,.25,.5,.75,.9,.99,.999,1))
-sdf_quantile(tmp, column='total_perday_active_time_s', probabilities=c(0,.25,.5,.75,.9,.99,.999,1))
-
-```
 
 ```{r}
 # scored_browsing_tbl %>% 
@@ -174,46 +91,22 @@ sdf_quantile(tmp, column='total_perday_active_time_s', probabilities=c(0,.25,.5,
 
 ```{r}
 
-
-
-```
-
-```{r}
-scored_browsing_tbl %>% 
+tmp = scored_browsing_tbl %>% 
   filter(stage != 'treatment') %>%
   group_by(id, domain, score, mean_active_time_s, days_since_appearance) %>%
   mutate(
     scored_active_time_s = mean_active_time_s * abs(score) # gets site * score of site
   ) %>%
-  filter(id==1098 & domain=='aol.com') %>% ungroup %>%
-  select(-total_active_time_s, -mean_active_time_s, -score)
-```
+  ungroup %>% group_by(id, days_since_appearance, total_active_time_s) %>%
+  mutate(
+    total_perday_active_time_s = sum(total_active_time_s, na.rm=T) # computes total active time on scored domains for the day
+  ) 
 
-```{r}
-scored_browsing_tbl %>% 
-  filter(stage != 'treatment') %>%
-  group_by(id, domain, score, mean_active_time_s, days_since_appearance) %>%
-  mutate(
-    scored_active_time_s = mean_active_time_s * abs(score) # gets site * score of site
-  ) %>%
-  ungroup %>% select(-mean_active_time_s, -score) %>%
-  group_by(id, stage, branch) %>%
-  mutate(
-    avg_scored_active_time_s = mean(scored_active_time_s, na.rm=T)
-  ) %>% 
-  ungroup %>% select(-scored_active_time_s, -total_active_time_s, -domain) %>%
-  sdf_pivot(id + branch + avg_scored_active_time_s ~ stage) %>%
-  mutate(
-     posttreatment = (posttreatment/posttreatment)*avg_scored_active_time_s, # fill treatment dummy with mean value
-     pretreatment = (pretreatment/pretreatment)*avg_scored_active_time_s # fill treatment dummy with mean value
-   ) %>% 
-  ungroup %>% select(-avg_scored_active_time_s) %>% group_by(id, branch) %>%
-  mutate(
-   posttreatment = sum(posttreatment, na.rm=T),
-   pretreatment = sum(pretreatment, na.rm=T)
-  )
-```
-```{r}
+tmp
+sdf_quantile(tmp, column='scored_active_time_s', probabilities=c(0,.25,.5,.75,.9,.99,.999,1))
+sdf_quantile(tmp, column='total_perday_active_time_s', probabilities=c(0,.25,.5,.75,.9,.99,.999,1))
+
+
 spec1a_tbl = scored_browsing_tbl %>% 
   filter(stage != 'treatment') %>%
   group_by(id, domain, score, mean_active_time_s, days_since_appearance) %>%
@@ -254,6 +147,7 @@ paste('Number of rows =', dim(spec1a_tbl)[1])
 fit1a = glm(posttreatment ~ pretreatment*branch + branch, data=spec1a_tbl)
 sjt.glm(fit1a)
 plot_model(fit1a, rm.terms = 'pretreatment')
+stargazer(fit1a)
 ```
 
 
@@ -326,17 +220,19 @@ spec2c_tbl %>% filter(id==1098)
 spec2a_tbl$branch = factor(spec2a_tbl$branch)
 fit2a = lmer(posttreatment ~ pretreatment + abs(score) * branch + (1|id), data=spec2a_tbl)
 sjt.lmer(fit2a)
-plot_model(fit2a, rm.terms = 'pretreatment')
+plot_model(fit2a, rm.terms = 'pretreatment', 'abs(score)')
 
 spec2b_tbl$branch = factor(spec2b_tbl$branch)
 fit2b = lmer(posttreatment ~ pretreatment + abs(score) * branch + (1|id), data=spec2b_tbl)
 sjt.lmer(fit2b)
-plot_model(fit2b, rm.terms = 'pretreatment')
+plot_model(fit2b, rm.terms = 'pretreatment', 'abs(score)')
 
 spec2c_tbl$branch = factor(spec2c_tbl$branch)
 fit2c = lmer(posttreatment ~ pretreatment + abs(score) * branch + (1|id), data=spec2c_tbl)
 sjt.lmer(fit2c)
 plot_model(fit2c, rm.terms = c('pretreatment', 'abs(score)'))
+
+stargazer(fit2a, fit2b, fit3c)
 ```
 
 # Specification 3 
@@ -344,6 +240,44 @@ plot_model(fit2c, rm.terms = c('pretreatment', 'abs(score)'))
 Has average score changed over time?
 
 ```{r}
+spec3_tbl = scored_browsing_tbl %>% 
+  filter(stage=='pretreatment' | stage=='treatment' | stage=='posttreatment') %>%
+  group_by(id, stage, days_since_appearance, score) %>%
+  mutate(
+    daily_avg_score = mean(score, na.rm=T)
+  ) %>% select(-mean_active_time_s, -total_active_time_s) %>%
+  collect
 
+ggplot(spec3_tbl, aes(
+       x=days_since_appearance,
+       y=daily_avg_score,
+       color=stage,
+       group=days_since_appearance)) +
+  geom_boxplot()
+```
+```{r}
+spec3_tbl = spec3_tbl %>%
+  inner_join(pid_tbl, copy=T) %>%
+  filter(pid == 'D' | pid == 'R' | pid == 'SD' | pid == 'SR') %>%
+  group_by(id, stage, days_since_appearance, score) %>%
+  mutate(
+    daily_avg_score = mean(score, na.rm=T)
+  ) %>% 
+  collect
+
+ggplot(spec3_tbl, aes(
+       x=days_since_appearance,
+       y=daily_avg_score,
+       color=stage,
+       group=days_since_appearance)) +
+  geom_boxplot() + facet_wrap(~pid)
+```
+```{r}
+ggplot(spec3_tbl, aes(
+       x=days_since_appearance,
+       y=daily_avg_score,
+       fill=branch,
+       group=days_since_appearance)) +
+  geom_boxplot(position='dodge') + facet_wrap(~stage)
 ```
 

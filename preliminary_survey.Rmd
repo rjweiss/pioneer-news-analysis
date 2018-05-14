@@ -1,0 +1,123 @@
+---
+title: "Preliminary survey analysis"
+author: "Rebecca"
+date: "5/12/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r cars}
+# 
+# feeltherms = full_df %>% select(pioneer_id, wave, starts_with('feeltherm_')) %>% 
+#   #na.replace(0)%>%
+#   inner_join(completes)%>%
+#   inner_join(branches, copy=T)%>%
+#   inner_join(pid)%>%
+#   gather(key, value, -wave,-branch,-pid,-pioneer_id) %>%
+#   group_by(pioneer_id, key, branch, pid) %>%
+#   mutate(delta = value - lag(value, default = 0)) %>%
+#   filter(wave==2) %>%
+#   group_by(key, branch, pid) %>%
+#   count(delta) %>% collect
+#   
+# feeltherms %>%
+#   ggplot(aes(
+#     x=delta,
+#     y=n#,
+# #    color=branch
+#   )) + 
+#   geom_bar(stat='identity', position='dodge') + facet_grid(~pid)
+# 
+# plot = feeltherms %>% 
+#   group_by(branch, key) %>%
+#   summarise(
+#     mean=mean(delta, na.rm=T),
+#     sd = sd(delta, na.rm = TRUE),
+#     n = n()) %>%
+#   mutate(se = sd / sqrt(n),
+#          lower.ci = mean - qt(1 - (0.05 / 2), n - 1) * se,
+#          upper.ci = mean + qt(1 - (0.05 / 2), n - 1) * se)
+# 
+# ggplot(plot, aes(
+#   x=branch,
+#   y=mean,
+#   color=branch
+# )) +
+#   geom_pointrange(aes(ymin=lower.ci, ymax=upper.ci)) + 
+#   coord_flip() + 
+#   facet_wrap(~key, nrow=8)
+# 
+# # no effect on feeling thermometers
+# 
+# mediabias = full_df %>% select(pioneer_id, wave, starts_with('media_bias')) %>% 
+#   #na.replace(0)%>%
+#   inner_join(completes)%>%
+#   inner_join(branches, copy=T)%>%
+#   inner_join(pid)%>%
+#   gather(key, value, -wave,-branch,-pid,-pioneer_id) %>%
+#   group_by(pioneer_id, key, branch, pid) %>%
+#   mutate(delta = value - lag(value, default = 0)) %>%
+#   filter(wave==2) %>%
+#   group_by(key, branch, pid) %>%
+#   count(delta) %>% collect
+# 
+# mediabias %>%
+#   ggplot(aes(
+#     x=delta,
+#     y=n#,
+#     #    color=branch
+#   )) + 
+#   geom_bar(stat='identity', position='dodge') + facet_grid(~pid)
+# 
+# plot = mediabias %>% 
+#   group_by(branch, key) %>%
+#   summarise(
+#     mean=mean(delta, na.rm=T),
+#     sd = sd(delta, na.rm = TRUE),
+#     n = n()) %>%
+#   mutate(se = sd / sqrt(n),
+#          lower.ci = mean - qt(1 - (0.05 / 2), n - 1) * se,
+#          upper.ci = mean + qt(1 - (0.05 / 2), n - 1) * se)
+# 
+# ggplot(plot, aes(
+#   x=branch,
+#   y=mean,
+#   color=branch
+# )) +
+#   geom_pointrange(aes(ymin=lower.ci, ymax=upper.ci)) + 
+#   coord_flip() + 
+#   facet_wrap(~key, nrow=8)
+# 
+# # any point shifts in media bias?
+# 
+# tmp=full_df %>% 
+#   inner_join(completes)%>%
+#   inner_join(branches, copy=T)%>%
+#   inner_join(pid) %>%
+#   group_by(wave, pid, branch) %>%
+#   summarise(
+#     mean=mean(media_bias3, na.rm=T),
+#     sd = sd(media_bias3, na.rm = TRUE),
+#     n = n()) %>%
+#   mutate(se = sd / sqrt(n),
+#          lower.ci = mean - qt(1 - (0.05 / 2), n - 1) * se,
+#          upper.ci = mean + qt(1 - (0.05 / 2), n - 1) * se)
+# 
+# ggplot(tmp, aes(
+#   x=branch,
+#   y=mean,
+#   color=wave
+# )) +
+#   geom_pointrange(aes(ymin=lower.ci, ymax=upper.ci)) + 
+#   coord_flip() + 
+#   facet_wrap(~pid, nrow=8)
+
+
+############
+```
+

@@ -1,0 +1,230 @@
+---
+title: "main_model_spec"
+author: "Rebecca"
+date: "5/12/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+  cache.path = '/home/hadoop/analyses/rweiss/pioneer-news-analysis/cache/',
+  cache.extra = list(R.version, sessionInfo(), format(Sys.Date(), '%Y-%m')),
+  fig.path = "fig/")
+
+source('/home/hadoop/analyses/rweiss/pioneer-news-analysis/make_browsing_tables.R')
+source('/home/hadoop/analyses/rweiss/pioneer-news-analysis/recode_survey.R')
+```
+
+
+## R Markdown
+
+within the document. You can embed an R code chunk like this:
+
+
+## Effect of treatments on browsing
+```{r maineffect, cache=TRUE}
+
+# scored_activity_tbl = activity_tbl %>%
+#  inner_join(scored_domains_tbl) %>%
+#  filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% 
+#  mutate(total_active_time = total_dwell_time - total_idle_time,
+#         scored_active_time = score * total_active_time) %>%
+#  filter(total_active_time < 5000) #%>% # remove clients with active time greater than 99.999%
+
+scaled_browsing = scored_activity_tbl %>%
+  group_by(id, stage, branch, days_since_appearance) %>%
+  summarise(
+    scored_active_time_s = sum(abs(scored_active_time), na.rm=T), # XXX added abs value
+    total_active_time_s = sum(total_active_time, na.rm=T)) %>%
+  mutate(scaled_active_bias_s = scored_active_time_s/total_active_time_s) %>%
+  compute('scaled_browsing')
+
+treatment_spark = scaled_browsing %>%
+  sdf_pivot(id + days_since_appearance + branch + scaled_active_bias_s ~ stage) %>%
+  na.replace(0) %>%
+  mutate(pretreatment = pretreatment * scaled_active_bias_s,
+         treatment = treatment * scaled_active_bias_s,
+         posttreatment = posttreatment * scaled_active_bias_s,
+         condition = case_when(
+           branch=='control'~'Control',
+           branch=='treatment-bias'~'Treatment',
+           branch=='treatment-whois'~'APlacebo')) 
+
+fit_main_xcontrol = glm(data=treatment_spark, formula=posttreatment~pretreatment + branch)
+fit_main_xplacebo = glm(data=treatment_spark, formula=posttreatment~pretreatment + condition)
+fit_int_xplacebo = glm(data=treatment_spark, formula=posttreatment~pretreatment*condition + condition)
+fit_int_xcontrol = glm(data=treatment_spark, formula=posttreatment~pretreatment*branch + branch)
+
+sjt.lm(fit_main_xcontrol,fit_main_xplacebo,
+        show.header = T,
+        emph.p=T, 
+        show.ci=T,
+        digits.est = 3,
+        digits.ci = 2,
+        separate.ci.col = T,
+        string.est = "Estimate",
+        string.ci = "Conf. Int.",
+        string.p = "p-value",
+        string.dv = "Response",
+        string.pred = "Coefficients",
+        p.numeric = T)
+
+# library(stargazer)
+# stargazer(fit_main_xcontrol,fit_main_xplacebo)
+
+sjt.lm(fit_int_xplacebo, fit_int_xcontrol,
+        show.header = T,
+        emph.p=T, 
+        show.ci=T,
+        digits.est = 3,
+        digits.ci = 2,
+        separate.ci.col = T,
+        string.est = "Estimate",
+        string.ci = "Conf. Int.",
+        string.p = "p-value",
+        string.dv = "Response",
+        string.pred = "Coefficients",
+        p.numeric = T)
+
+
+
+sjPlot::plot_model(fit_main_xcontrol,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
+sjPlot::plot_model(fit_main_xplacebo,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
+
+sjPlot::plot_model(fit_int_xcontrol,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
+
+sjPlot::plot_model(fit_int_xplacebo,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
+
+
+
+dat = ggeffects::ggpredict(fit_int_xcontrol, terms = c('pretreatment','branch'))
+plot(dat) + theme_bw()
+
+datb = ggeffects::ggpredict(fit_int_xplacebo, terms = c('pretreatment','condition'))
+plot(datb) + theme_bw()
+
+```
+
+
+```{r warning=F, echo=F}
+
+scaled_browsing_pid = scored_activity_tbl %>%
+  inner_join(pid_tbl) %>%
+  filter(pid != 'O' & pid != 'N' & pid != 'I' ) %>% #| pid == 'I') %>%
+  group_by(id, pid, stage, branch, days_since_appearance) %>%
+  summarise(
+    scored_active_time_s = sum(scored_active_time, na.rm=T),
+    total_active_time_s = sum(total_active_time, na.rm=T)) %>%
+  mutate(scaled_active_bias_s = scored_active_time_s/total_active_time_s)
+
+treatment_pid_spark = scaled_browsing_pid %>%
+  sdf_pivot(id + days_since_appearance + branch + scaled_active_bias_s + pid ~ stage) %>%
+  na.replace(0) %>%
+  mutate(pretreatment = pretreatment * scaled_active_bias_s) %>%
+  mutate(treatment = treatment * scaled_active_bias_s) %>%
+  mutate(posttreatment = posttreatment * scaled_active_bias_s) %>%
+  mutate(
+    condition = case_when(
+      branch=='control'~'Control',
+      branch=='treatment-bias'~'Treatment',
+      branch=='treatment-whois'~'APlacebo'
+    ))
+
+fit_pid_main_xcontrol = glm(data=treatment_pid_spark, formula=posttreatment~pretreatment + branch + pid)
+fit_pid_main_xplacebo = glm(data=treatment_pid_spark, formula=posttreatment~pretreatment + condition + pid)
+fit_pid_int_xcontrol = glm(data=treatment_pid_spark, formula=posttreatment~pretreatment + branch* pid)
+fit_pid_int_xplacebo = glm(data=treatment_pid_spark, formula=posttreatment~pretreatment + condition*pid)
+
+sjt.lm(fit_pid_main_xcontrol,fit_pid_main_xplacebo,
+        show.header = T,
+        emph.p=T, 
+        show.ci=T,
+        digits.est = 3,
+        digits.ci = 2,
+        separate.ci.col = T,
+        string.est = "Estimate",
+        string.ci = "Conf. Int.",
+        string.p = "p-value",
+        string.dv = "Response",
+        string.pred = "Coefficients",
+        p.numeric = T)
+
+
+sjt.lm(fit_pid_int_xcontrol,fit_pid_int_xplacebo,
+        show.header = T,
+        emph.p=T, 
+        show.ci=T,
+        digits.est = 3,
+        digits.ci = 2,
+        separate.ci.col = T,
+        string.est = "Estimate",
+        string.ci = "Conf. Int.",
+        string.p = "p-value",
+        string.dv = "Response",
+        string.pred = "Coefficients",
+        p.numeric = T)
+
+sjPlot::plot_model(fit_pid_main_xcontrol,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
+sjPlot::plot_model(fit_pid_main_xplacebo,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
+
+sjPlot::plot_model(fit_pid_int_xcontrol,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
+
+sjPlot::plot_model(fit_pid_int_xplacebo,
+                   rm.terms=c('pretreatment'),
+                   title='title',
+                   vline.color='black',
+                   show.values = T,
+                   digits=3,
+                   sort.est=T) + theme_bw()
+
+
+dat = ggeffects::ggpredict(fit_pid_int_xcontrol, terms = c('pretreatment','pid', 'branch'))
+plot(dat) + theme_bw()
+
+datb = ggeffects::ggpredict(fit_pid_int_xplacebo, terms = c('pretreatment', 'pid', 'condition'))
+plot(datb) + theme_bw()
+```
+
