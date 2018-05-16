@@ -22,15 +22,16 @@ library(xtable)
 library(stargazer)
 
 spark_disconnect_all()
+rm(list=ls(all=T))
 
 #spark config
 Sys.setenv(SPARK_HOME='/usr/lib/spark')
 config <- spark_config()
-#config$spark.driver.memory <- "5G"
-#config$spark.executor.memory <- "10G"
+config$spark.driver.memory <- "5G"
+config$spark.executor.memory <- "10G"
 #config$spark.yarn.executor.memoryOverhead <- "1G"
-#config$spark.executor.cores <- 15 # default 1
-#config$spark.executor.instances <- 10 # default 2
+config$spark.executor.cores <- 15 # default 1
+config$spark.executor.instances <- 10 # default 2
 #config$spark.sql.shuffle.partitions <- 320
 sc <- spark_connect(master = "yarn-client", version = "1.6.2", config = config)
 
@@ -56,7 +57,6 @@ dwell_stages_tbl = dwell_clean_tbl %>%
 
 # compute active time (where dwell = active + idle time)
 activity_tbl = dwell_stages_tbl %>% 
-  #filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% 
   mutate(total_active_time = total_dwell_time - total_idle_time) %>%
   filter(total_active_time < 5000) %>% # remove clients with active time greater than 99.999%
   compute('activity_tbl')

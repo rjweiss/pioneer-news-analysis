@@ -2,7 +2,9 @@
 title: "main_model_spec"
 author: "Rebecca"
 date: "5/12/2018"
-output: html_document
+output: 
+  html_document:
+    keep_md: true
 ---
 
 ```{r setup, include=FALSE}
@@ -23,14 +25,57 @@ within the document. You can embed an R code chunk like this:
 
 
 ## Effect of treatments on browsing
-```{r maineffect, cache=TRUE}
+```{r}
+browsing = activity_tbl %>%
+  group_by(id, days_since_appearance) %>%
+  mutate(
+    daily_active_time_s = sum(total_active_time, na.rm=T)
+  ) %>% ungroup %>%
+  group_by(id, domain, stage, branch, daily_active_time_s, days_since_appearance) %>%
+  summarise(
+    session_active_time_s = sum(total_active_time, na.rm=T)) %>%
+  ungroup
+  
+scored_browsing = scored_activity_tbl %>%
+  group_by(id, days_since_appearance) %>%
+  mutate(
+    daily_active_time_s = sum(total_active_time, na.rm=T)
+  ) %>% ungroup %>%
+  group_by(id, score, stage, branch, daily_active_time_s, days_since_appearance) %>%
+  summarise(
+    session_active_time_s = sum(total_active_time, na.rm=T))
 
-# scored_activity_tbl = activity_tbl %>%
-#  inner_join(scored_domains_tbl) %>%
-#  filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% 
-#  mutate(total_active_time = total_dwell_time - total_idle_time,
-#         scored_active_time = score * total_active_time) %>%
-#  filter(total_active_time < 5000) #%>% # remove clients with active time greater than 99.999%
+
+# browsing_daily = sdf_quantile(browsing, 'daily_active_time_s', probabilities=seq(0,1,by=0.0001))
+# 
+# browsing_deciles = data.frame(
+#   browsing_daily = sdf_quantile(browsing, 'daily_active_time_s', probabilities=c(.1,.2,.3,.4,.5,.6,.7,.8,.9,.99,.999,.9999,1)),
+#   sbrowsing_daily = quantile(scored_browsing$daily_active_time_s, probs=c(.1,.2,.3,.4,.5,.6,.7,.8,.9,.99,.999,.9999,1)),
+#   browsing_session = sdf_quantile(browsing, 'session_active_time_s', probabilities=c(.1,.2,.3,.4,.5,.6,.7,.8,.9,.99,.999,.9999,1)),
+#   sbrowsing_session = quantile(scored_browsing$session_active_time_s, probs=c(.1,.2,.3,.4,.5,.6,.7,.8,.9,.99,.999,.9999,1)),
+#   row.names = c('10%','20%','30%','40%','50%','60%','70%','80%','90%','99%','99.9%','99.99%', '100%'))
+
+scored_browsing= scored_browsing %>% 
+  filter(stage != 'treatment') %>%
+  sdf_pivot(id + score + branch + days_since_appearance + session_active_time_s + daily_active_time_s ~ stage) %>%
+  na.replace(0) %>%
+  mutate(pretreatment = pretreatment * log1p(session_active_time_s)/log1p(daily_active_time_s),
+         posttreatment = posttreatment * log1p(session_active_time_s)/log1p(daily_active_time_s),
+         score=abs(score)) %>%
+   arrange(id, days_since_appearance)
+
+sdf_quantile(scored_browsing, 'pretreatment')
+
+#library(lme4)
+fit= lmer(posttreatment ~ pretreatment * score + branch + (1|id), data=scored_browsing)
+sjt.lmer(fit)
+plot_model(fit, rm.terms = c('score', 'pretreatment'))
+plot(ggeffects::ggpredict(fit, terms = c('score','pretreatment', 'branch')))
+
+```
+
+
+```{r maineffect, cache=TRUE}
 
 scaled_browsing = scored_activity_tbl %>%
   group_by(id, stage, branch, days_since_appearance) %>%
@@ -226,5 +271,53 @@ plot(dat) + theme_bw()
 
 datb = ggeffects::ggpredict(fit_pid_int_xplacebo, terms = c('pretreatment', 'pid', 'condition'))
 plot(datb) + theme_bw()
+```
+```{r}
+# ecdf_df= data.frame(Days=quantile(ecdf_activewdays_df$nn, probs=c(0, .25, .5, .75, .99, .999, .9999, 1)))
+# 
+# ecdf_activedays_tab=xtable(t(ecdf_df),
+#                            caption='caption',
+#                            label='tab:ecdf_activewdays')
+# 
+# print(ecdf_activedays_tab,file="tables.tex",append=T,table.placement = "h",
+#  caption.placement="bottom", hline.after=seq(from=-1,to=nrow(ecdf_activedays_tab),by=1))
+
+mod_stargazer <- function(output.file, ...) {
+  output <- capture.output(stargazer(...,omit.stat=c("LL","ser","f"), no.space=TRUE))
+  cat(paste(output, collapse = "\n"), "\n", file=output.file, append=TRUE)
+}
+
+mod_stargazer('tables.tex',list(fit_pid_main_xplacebo,fit_pid_int_xplacebo), header=F)
+mod_stargazer('tables.tex',list(fit_pid_main_xcontrol,fit_pid_int_xcontrol), header=F)
+```
+# Modification on existing spec
+```{r}
+scaled_browsing_pid = scored_activity_tbl %>%
+  inner_join(pid_tbl) %>%
+  group_by(id, pid, pidstr, stage, branch, days_since_appearance) %>%
+  summarise(
+    scored_active_time_s = sum(abs(scored_active_time), na.rm=T),
+    total_active_time_s = sum(total_active_time, na.rm=T)) %>%
+  mutate(scaled_active_bias_s = scored_active_time_s/total_active_time_s)
+
+sdf_quantile(scaled_browsing_pid, 'scaled_active_bias_s')
+
+treatment_pid_spark = scaled_browsing_pid %>%
+  sdf_pivot(id + days_since_appearance + branch + total_active_time_s + pid + pidstr ~ stage) %>%
+  na.replace(0) %>%
+  mutate(pretreatment = pretreatment * log(total_active_time_s+1)) %>%
+  mutate(treatment = treatment * log(total_active_time_s+1)) %>%
+  mutate(posttreatment = posttreatment * log(total_active_time_s+1)) %>%
+  mutate(
+    condition = case_when(
+      branch=='control'~'Control',
+      branch=='treatment-bias'~'Treatment',
+      branch=='treatment-whois'~'APlacebo'
+    ))
+
+
+fit2_pid_main_xcontrol = glm(data=treatment_pid_spark, formula=posttreatment~pretreatment + branch*pid + branch*pidstr)
+summary(fit2_pid_main_xcontrol)
+
 ```
 

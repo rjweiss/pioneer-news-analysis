@@ -363,7 +363,7 @@ ggplot(daily_pid_scored_sessions, aes(
   fill=pid)) + stat_density(position='dodge', geom='line', trim=T) + 
   labs(title='Density of site visits along alignment scores', 
        subtitle='By self-reported party identification',
-       color='Party Identification') +
+       color='') +
   xlab('Alignment score from Bakshy, Messing, and Adamic (2015)') + ylab('Density of dwell events') +
   theme_bw() + theme(legend.position = 'bottom') +
   guides(

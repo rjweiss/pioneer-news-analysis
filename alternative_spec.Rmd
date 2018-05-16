@@ -48,7 +48,8 @@ head(activity_tbl)
 * Compute mean active time per domain on a day in the study
 * Compute total active time per domain on a day in the study
 ```{r}
-head(scored_browsing_tbl)
+#head(scored_browsing_tbl)
+head(scored_activity_tbl)
 ```
 
 # Specification 1
@@ -91,7 +92,14 @@ head(scored_browsing_tbl)
 
 ```{r}
 
-tmp = scored_browsing_tbl %>% 
+scored_browsing_tbl = activity_tbl %>%
+  inner_join(scored_domains_tbl) %>%
+  group_by(id, stage, days_since_appearance, branch, domain, score) %>%
+  summarise(
+    mean_active_time_s = mean(total_active_time, na.rm=T),
+    total_active_time_s = sum(total_active_time, na.rm=T)) 
+
+tmp = scored_browsing_tbl%>% 
   filter(stage != 'treatment') %>%
   group_by(id, domain, score, mean_active_time_s, days_since_appearance) %>%
   mutate(
@@ -102,7 +110,7 @@ tmp = scored_browsing_tbl %>%
     total_perday_active_time_s = sum(total_active_time_s, na.rm=T) # computes total active time on scored domains for the day
   ) 
 
-tmp
+head(tmp)
 sdf_quantile(tmp, column='scored_active_time_s', probabilities=c(0,.25,.5,.75,.9,.99,.999,1))
 sdf_quantile(tmp, column='total_perday_active_time_s', probabilities=c(0,.25,.5,.75,.9,.99,.999,1))
 
@@ -147,7 +155,15 @@ paste('Number of rows =', dim(spec1a_tbl)[1])
 fit1a = glm(posttreatment ~ pretreatment*branch + branch, data=spec1a_tbl)
 sjt.glm(fit1a)
 plot_model(fit1a, rm.terms = 'pretreatment')
-stargazer(fit1a)
+
+mod_stargazer <- function(output.file, ...) {
+  output <- capture.output(stargazer(...,omit.stat=c("LL","ser","f"), no.space=TRUE))
+  cat(paste(output, collapse = "\n"), "\n", file=output.file, append=TRUE)
+}
+
+mod_stargazer('tables.tex',fit1a, header=F)
+
+
 ```
 
 
@@ -209,6 +225,7 @@ spec2c_tbl = scored_browsing_tbl %>%
   na.replace(0) %>%
   collect
 ```
+
 ```{r}
 spec2a_tbl %>% filter(id==1098)
 spec2b_tbl %>% filter(id==1098)
@@ -216,23 +233,30 @@ spec2c_tbl %>% filter(id==1098)
 ```
 
 ```{r}
+head(spec2a_tbl)
+head(spec2b_tbl)
+head(spec2c_tbl)
+```
 
+
+```{r}
+library(lme4)
 spec2a_tbl$branch = factor(spec2a_tbl$branch)
 fit2a = lmer(posttreatment ~ pretreatment + abs(score) * branch + (1|id), data=spec2a_tbl)
 sjt.lmer(fit2a)
-plot_model(fit2a, rm.terms = 'pretreatment', 'abs(score)')
+plot_model(fit2a, rm.terms = c('pretreatment', 'abs(score)'))
 
 spec2b_tbl$branch = factor(spec2b_tbl$branch)
 fit2b = lmer(posttreatment ~ pretreatment + abs(score) * branch + (1|id), data=spec2b_tbl)
 sjt.lmer(fit2b)
-plot_model(fit2b, rm.terms = 'pretreatment', 'abs(score)')
+plot_model(fit2b, rm.terms = c('pretreatment', 'abs(score)'))
 
 spec2c_tbl$branch = factor(spec2c_tbl$branch)
 fit2c = lmer(posttreatment ~ pretreatment + abs(score) * branch + (1|id), data=spec2c_tbl)
 sjt.lmer(fit2c)
 plot_model(fit2c, rm.terms = c('pretreatment', 'abs(score)'))
 
-stargazer(fit2a, fit2b, fit3c)
+stargazer(fit2a, fit2b, fit2c)
 ```
 
 # Specification 3 
@@ -256,28 +280,28 @@ ggplot(spec3_tbl, aes(
   geom_boxplot()
 ```
 ```{r}
-spec3_tbl = spec3_tbl %>%
-  inner_join(pid_tbl, copy=T) %>%
-  filter(pid == 'D' | pid == 'R' | pid == 'SD' | pid == 'SR') %>%
-  group_by(id, stage, days_since_appearance, score) %>%
-  mutate(
-    daily_avg_score = mean(score, na.rm=T)
-  ) %>% 
-  collect
+#spec3_tbl = spec3_tbl %>%
+#  inner_join(pid_tbl) %>%
+#  filter(pid == 'D' | pid == 'R' | pid == 'SD' | pid == 'SR') %>%
+#  group_by(id, stage, days_since_appearance, score) %>%
+#  mutate(
+#    daily_avg_score = mean(score, na.rm=T)
+#  ) %>% 
+#  collect
 
-ggplot(spec3_tbl, aes(
-       x=days_since_appearance,
-       y=daily_avg_score,
-       color=stage,
-       group=days_since_appearance)) +
-  geom_boxplot() + facet_wrap(~pid)
+#ggplot(spec3_tbl, aes(
+#       x=days_since_appearance,
+#       y=daily_avg_score,
+#       color=stage,
+#       group=days_since_appearance)) +
+#  geom_boxplot() + facet_wrap(~pid)
 ```
 ```{r}
-ggplot(spec3_tbl, aes(
-       x=days_since_appearance,
-       y=daily_avg_score,
-       fill=branch,
-       group=days_since_appearance)) +
-  geom_boxplot(position='dodge') + facet_wrap(~stage)
+#ggplot(spec3_tbl, aes(
+#       x=days_since_appearance,
+#       y=daily_avg_score,
+#       fill=branch,
+#       group=days_since_appearance)) +
+#  geom_boxplot(position='dodge') + facet_wrap(~stage)
 ```
 
