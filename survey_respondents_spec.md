@@ -7,21 +7,13 @@ output:
     keep_md: true
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_chunk$set(
-  cache.path = '/home/hadoop/analyses/rweiss/pioneer-news-analysis/cache/',
-  cache.extra = list(R.version, sessionInfo(), format(Sys.Date(), '%Y-%m')),
-  fig.path = "fig/")
 
-source('/home/hadoop/analyses/rweiss/pioneer-news-analysis/make_browsing_tables.R')
-source('/home/hadoop/analyses/rweiss/pioneer-news-analysis/recode_survey.R')
-```
 
 
 
 # Descriptives of general browsing against scored content browsing
-```{r}
+
+```r
 browsing = activity_tbl %>%
   #inner_join(pid_tbl) %>%
   group_by(id, days_since_appearance) %>%
@@ -65,13 +57,12 @@ prestage_daily_avg_activity = scored_browsing %>%
   select(pioneer_id, prestage_daily_avg_activity) %>%
   distinct(pioneer_id, prestage_daily_avg_activity) %>%
   compute('prestage_daily_avg_activity_tbl')
-
 ```
 
 ## Demographics
 
-```{r}
 
+```r
 #scored_browsing %>%
 #  inner_join(pid_tbl) %>%
 #  group_by(stage) %>%
@@ -116,32 +107,373 @@ sjt.frq(demos$gender,
         string.na='No response',
         title='Frequency table: Gender', 
         file='fig/gender_frq.html')
+```
 
+```
+## Warning: `get_note()` is defunct. Please use `base::comment()` instead.
+```
+
+<table style="border-collapse:collapse; border:none;">
+ <caption style="font-weight: bold; text-align:left;">Frequency table: Gender</caption>
+ <tr>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid; text-align:left; ">value</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">N</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">raw %</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">valid %</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">cumulative %</th>
+ </tr>
+
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Man</td>
+ <td style="padding:0.2cm; text-align:center;">4380</td>
+ <td style="padding:0.2cm; text-align:center;">73.28</td>
+ <td style="padding:0.2cm; text-align:center;">75.19</td>
+ <td style="padding:0.2cm; text-align:center;">75.19</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Neither</td>
+ <td style="padding:0.2cm; text-align:center;">59</td>
+ <td style="padding:0.2cm; text-align:center;">0.99</td>
+ <td style="padding:0.2cm; text-align:center;">1.01</td>
+ <td style="padding:0.2cm; text-align:center;">76.21</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Woman</td>
+ <td style="padding:0.2cm; text-align:center;">1386</td>
+ <td style="padding:0.2cm; text-align:center;">23.19</td>
+ <td style="padding:0.2cm; text-align:center;">23.79</td>
+ <td style="padding:0.2cm; text-align:center;">100.00</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; border-top:1px solid; border-bottom:double; ">No response</td>
+ <td style="padding:0.2cm; text-align:center; border-top:1px solid; border-bottom:double;">152</td>
+ <td style="padding:0.2cm; text-align:center; border-top:1px solid; border-bottom:double;">2.54</td>
+ <td style="padding:0.2cm; border-top:1px solid; border-bottom:double;"></td>
+ <td style="padding:0.2cm; border-top:1px solid; border-bottom:double;"></td>
+ </tr>
+ </table>
+
+```r
 sjt.frq(demos$age,
         auto.group = 7,
         show.summary=F,
         string.na='No response',
         title='Frequency table: Age',
         file='fig/age_frq.html')
+```
 
+```
+## Warning: `get_note()` is defunct. Please use `base::comment()` instead.
+```
+
+```
+## Variable data with 76 unique values was grouped...
+```
+
+<table style="border-collapse:collapse; border:none;">
+ <caption style="font-weight: bold; text-align:left;">Frequency table: Age</caption>
+ <tr>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid; text-align:left; ">value</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">N</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">raw %</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">valid %</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">cumulative %</th>
+ </tr>
+
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">18-29</td>
+ <td style="padding:0.2cm; text-align:center;">1246</td>
+ <td style="padding:0.2cm; text-align:center;">20.85</td>
+ <td style="padding:0.2cm; text-align:center;">21.52</td>
+ <td style="padding:0.2cm; text-align:center;">21.52</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">30-41</td>
+ <td style="padding:0.2cm; text-align:center;">1201</td>
+ <td style="padding:0.2cm; text-align:center;">20.09</td>
+ <td style="padding:0.2cm; text-align:center;">20.75</td>
+ <td style="padding:0.2cm; text-align:center;">42.27</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">42-53</td>
+ <td style="padding:0.2cm; text-align:center;">1155</td>
+ <td style="padding:0.2cm; text-align:center;">19.32</td>
+ <td style="padding:0.2cm; text-align:center;">19.95</td>
+ <td style="padding:0.2cm; text-align:center;">62.22</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">54-65</td>
+ <td style="padding:0.2cm; text-align:center;">1241</td>
+ <td style="padding:0.2cm; text-align:center;">20.76</td>
+ <td style="padding:0.2cm; text-align:center;">21.44</td>
+ <td style="padding:0.2cm; text-align:center;">83.66</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">66-77</td>
+ <td style="padding:0.2cm; text-align:center;">805</td>
+ <td style="padding:0.2cm; text-align:center;">13.47</td>
+ <td style="padding:0.2cm; text-align:center;">13.91</td>
+ <td style="padding:0.2cm; text-align:center;">97.56</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">78-89</td>
+ <td style="padding:0.2cm; text-align:center;">134</td>
+ <td style="padding:0.2cm; text-align:center;">2.24</td>
+ <td style="padding:0.2cm; text-align:center;">2.31</td>
+ <td style="padding:0.2cm; text-align:center;">99.88</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">90-101</td>
+ <td style="padding:0.2cm; text-align:center;">7</td>
+ <td style="padding:0.2cm; text-align:center;">0.12</td>
+ <td style="padding:0.2cm; text-align:center;">0.12</td>
+ <td style="padding:0.2cm; text-align:center;">100.00</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; border-top:1px solid; border-bottom:double; ">No response</td>
+ <td style="padding:0.2cm; text-align:center; border-top:1px solid; border-bottom:double;">188</td>
+ <td style="padding:0.2cm; text-align:center; border-top:1px solid; border-bottom:double;">3.15</td>
+ <td style="padding:0.2cm; border-top:1px solid; border-bottom:double;"></td>
+ <td style="padding:0.2cm; border-top:1px solid; border-bottom:double;"></td>
+ </tr>
+ </table>
+
+```r
 sjt.frq(demos$education,
         show.summary=F,
         string.na='No response',
         title='Frequency table: Education',
         file='fig/ed_frq.html')
+```
 
+```
+## Warning: `get_note()` is defunct. Please use `base::comment()` instead.
+```
+
+<table style="border-collapse:collapse; border:none;">
+ <caption style="font-weight: bold; text-align:left;">Frequency table: Education</caption>
+ <tr>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid; text-align:left; ">value</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">N</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">raw %</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">valid %</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">cumulative %</th>
+ </tr>
+
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Completed graduate</td>
+ <td style="padding:0.2cm; text-align:center;">1402</td>
+ <td style="padding:0.2cm; text-align:center;">23.46</td>
+ <td style="padding:0.2cm; text-align:center;">30.67</td>
+ <td style="padding:0.2cm; text-align:center;">30.67</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">High school</td>
+ <td style="padding:0.2cm; text-align:center;">486</td>
+ <td style="padding:0.2cm; text-align:center;">8.13</td>
+ <td style="padding:0.2cm; text-align:center;">10.63</td>
+ <td style="padding:0.2cm; text-align:center;">41.30</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Less than high school</td>
+ <td style="padding:0.2cm; text-align:center;">226</td>
+ <td style="padding:0.2cm; text-align:center;">3.78</td>
+ <td style="padding:0.2cm; text-align:center;">4.94</td>
+ <td style="padding:0.2cm; text-align:center;">46.25</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Some graduate</td>
+ <td style="padding:0.2cm; text-align:center;">601</td>
+ <td style="padding:0.2cm; text-align:center;">10.06</td>
+ <td style="padding:0.2cm; text-align:center;">13.15</td>
+ <td style="padding:0.2cm; text-align:center;">59.40</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Some undergraduate</td>
+ <td style="padding:0.2cm; text-align:center;">1856</td>
+ <td style="padding:0.2cm; text-align:center;">31.05</td>
+ <td style="padding:0.2cm; text-align:center;">40.60</td>
+ <td style="padding:0.2cm; text-align:center;">100.00</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; border-top:1px solid; border-bottom:double; ">No response</td>
+ <td style="padding:0.2cm; text-align:center; border-top:1px solid; border-bottom:double;">1406</td>
+ <td style="padding:0.2cm; text-align:center; border-top:1px solid; border-bottom:double;">23.52</td>
+ <td style="padding:0.2cm; border-top:1px solid; border-bottom:double;"></td>
+ <td style="padding:0.2cm; border-top:1px solid; border-bottom:double;"></td>
+ </tr>
+ </table>
+
+```r
 sjt.frq(demos$pid3,
         show.summary=F,
         string.na='No response',
         title='Frequency table: Party ID (including leaners)',
         file='fig/pid3_frq.html')
+```
 
+```
+## Warning: `get_note()` is defunct. Please use `base::comment()` instead.
+```
+
+<table style="border-collapse:collapse; border:none;">
+ <caption style="font-weight: bold; text-align:left;">Frequency table: Party ID (including leaners)</caption>
+ <tr>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid; text-align:left; ">value</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">N</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">raw %</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">valid %</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">cumulative %</th>
+ </tr>
+
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Democrat</td>
+ <td style="padding:0.2cm; text-align:center;">3466</td>
+ <td style="padding:0.2cm; text-align:center;">57.99</td>
+ <td style="padding:0.2cm; text-align:center;">57.99</td>
+ <td style="padding:0.2cm; text-align:center;">57.99</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Independent</td>
+ <td style="padding:0.2cm; text-align:center;">54</td>
+ <td style="padding:0.2cm; text-align:center;">0.90</td>
+ <td style="padding:0.2cm; text-align:center;">0.90</td>
+ <td style="padding:0.2cm; text-align:center;">58.89</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">No response</td>
+ <td style="padding:0.2cm; text-align:center;">705</td>
+ <td style="padding:0.2cm; text-align:center;">11.80</td>
+ <td style="padding:0.2cm; text-align:center;">11.80</td>
+ <td style="padding:0.2cm; text-align:center;">70.69</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Other</td>
+ <td style="padding:0.2cm; text-align:center;">22</td>
+ <td style="padding:0.2cm; text-align:center;">0.37</td>
+ <td style="padding:0.2cm; text-align:center;">0.37</td>
+ <td style="padding:0.2cm; text-align:center;">71.06</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Republican</td>
+ <td style="padding:0.2cm; text-align:center;">1730</td>
+ <td style="padding:0.2cm; text-align:center;">28.94</td>
+ <td style="padding:0.2cm; text-align:center;">28.94</td>
+ <td style="padding:0.2cm; text-align:center;">100.00</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; border-top:1px solid; border-bottom:double; ">No response</td>
+ <td style="padding:0.2cm; text-align:center; border-top:1px solid; border-bottom:double;">0</td>
+ <td style="padding:0.2cm; text-align:center; border-top:1px solid; border-bottom:double;">0.00</td>
+ <td style="padding:0.2cm; border-top:1px solid; border-bottom:double;"></td>
+ <td style="padding:0.2cm; border-top:1px solid; border-bottom:double;"></td>
+ </tr>
+ </table>
+
+```r
 sjt.frq(demos$pid7,
         show.summary=F,
         string.na='No response',
         title='Frequency table: Party ID (including leaners)',
         file='fig/pid7_frq.html')
+```
 
+```
+## `sjt.frq()` will become deprecated in the future. Please use `sjmisc::frq(out = "v")` instead.
+```
+
+```
+## Warning: `get_note()` is defunct. Please use `base::comment()` instead.
+```
+
+<table style="border-collapse:collapse; border:none;">
+ <caption style="font-weight: bold; text-align:left;">Frequency table: Party ID (including leaners)</caption>
+ <tr>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid; text-align:left; ">value</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">N</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">raw %</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">valid %</th>
+ <th style="border-top:double; text-align:center; font-style:italic; font-weight:normal; padding-left:0.2cm; padding-right:0.2cm; border-bottom:1px solid;">cumulative %</th>
+ </tr>
+
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Democrat</td>
+ <td style="padding:0.2cm; text-align:center;">2195</td>
+ <td style="padding:0.2cm; text-align:center;">36.72</td>
+ <td style="padding:0.2cm; text-align:center;">36.72</td>
+ <td style="padding:0.2cm; text-align:center;">36.72</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Independent</td>
+ <td style="padding:0.2cm; text-align:center;">54</td>
+ <td style="padding:0.2cm; text-align:center;">0.90</td>
+ <td style="padding:0.2cm; text-align:center;">0.90</td>
+ <td style="padding:0.2cm; text-align:center;">37.63</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Other</td>
+ <td style="padding:0.2cm; text-align:center;">727</td>
+ <td style="padding:0.2cm; text-align:center;">12.16</td>
+ <td style="padding:0.2cm; text-align:center;">12.16</td>
+ <td style="padding:0.2cm; text-align:center;">49.79</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Republican</td>
+ <td style="padding:0.2cm; text-align:center;">1215</td>
+ <td style="padding:0.2cm; text-align:center;">20.33</td>
+ <td style="padding:0.2cm; text-align:center;">20.33</td>
+ <td style="padding:0.2cm; text-align:center;">70.12</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Strong Democrat</td>
+ <td style="padding:0.2cm; text-align:center;">1271</td>
+ <td style="padding:0.2cm; text-align:center;">21.26</td>
+ <td style="padding:0.2cm; text-align:center;">21.26</td>
+ <td style="padding:0.2cm; text-align:center;">91.38</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; ">Strong Republican</td>
+ <td style="padding:0.2cm; text-align:center;">515</td>
+ <td style="padding:0.2cm; text-align:center;">8.62</td>
+ <td style="padding:0.2cm; text-align:center;">8.62</td>
+ <td style="padding:0.2cm; text-align:center;">100.00</td>
+ </tr>
+ 
+ <tr>
+ <td style="padding:0.2cm; text-align:left; border-top:1px solid; border-bottom:double; ">No response</td>
+ <td style="padding:0.2cm; text-align:center; border-top:1px solid; border-bottom:double;">0</td>
+ <td style="padding:0.2cm; text-align:center; border-top:1px solid; border-bottom:double;">0.00</td>
+ <td style="padding:0.2cm; border-top:1px solid; border-bottom:double;"></td>
+ <td style="padding:0.2cm; border-top:1px solid; border-bottom:double;"></td>
+ </tr>
+ </table>
+
+```r
 library(forcats)
 demos$gender = as.factor(replace_na(as.character(demos$gender), 'No response')) %>% fct_relevel('Neither','Man','Woman', 'No response')
 demos$education = as.factor(replace_na(as.character(demos$education), 'No response')) %>%
@@ -160,7 +492,33 @@ ggplot(demos, aes(
   xlab('Age in years') + ylab('') +
   theme(legend.position = 'bottom') +
   ggsave('fig/news_demographic_densities_ed.pdf', height=6)
+```
 
+```
+## Saving 7 x 6 in image
+```
+
+```
+## Picking joint bandwidth of 5.78
+```
+
+```
+## Warning: Removed 188 rows containing non-finite values
+## (stat_density_ridges).
+```
+
+```
+## Picking joint bandwidth of 5.78
+```
+
+```
+## Warning: Removed 188 rows containing non-finite values
+## (stat_density_ridges).
+```
+
+![](fig/unnamed-chunk-2-1.png)<!-- -->
+
+```r
 ggplot(na.omit(demos), aes(
   x=age,y=pid3,fill=gender)) +
     geom_density_ridges(alpha=0.25) +
@@ -170,8 +528,20 @@ ggplot(na.omit(demos), aes(
   xlab('Age in years') + ylab('') +
   theme(legend.position = 'bottom') +
   ggsave('fig/news_demographic_densities_pid3.pdf', height=8)
+```
 
+```
+## Saving 7 x 8 in image
+```
 
+```
+## Picking joint bandwidth of 5
+## Picking joint bandwidth of 5
+```
+
+![](fig/unnamed-chunk-2-2.png)<!-- -->
+
+```r
 ggplot(na.omit(demos), aes(
   x=age,y=pid7,fill=gender)) +
     geom_density_ridges(alpha=0.25) +
@@ -181,7 +551,20 @@ ggplot(na.omit(demos), aes(
   xlab('Age in years') + ylab('') +
   theme(legend.position = 'bottom') +
   ggsave('fig/news_demographic_densities_pid7.pdf', height=8)
+```
 
+```
+## Saving 7 x 8 in image
+```
+
+```
+## Picking joint bandwidth of 5.02
+## Picking joint bandwidth of 5.02
+```
+
+![](fig/unnamed-chunk-2-3.png)<!-- -->
+
+```r
 ggplot(demos,aes(
   x=education,
   fill=gender)) +
@@ -193,7 +576,19 @@ ggplot(demos,aes(
   scale_fill_colorblind(name='Gender') +
   theme(legend.position = 'bottom') +
   ggsave('fig/news_demographic_proportions.pdf')
+```
 
+```
+## Warning: Ignoring unknown parameters: binwidth, bins, pad
+```
+
+```
+## Saving 7 x 5 in image
+```
+
+![](fig/unnamed-chunk-2-4.png)<!-- -->
+
+```r
 ggplot(demos,aes(
   x=pid3,
   fill=gender)) +
@@ -205,7 +600,19 @@ ggplot(demos,aes(
   scale_fill_colorblind(name='Gender') +
   theme(legend.position = 'bottom') +
   ggsave('fig/news_demographic_proportions_pid3.pdf')
+```
 
+```
+## Warning: Ignoring unknown parameters: binwidth, bins, pad
+```
+
+```
+## Saving 7 x 5 in image
+```
+
+![](fig/unnamed-chunk-2-5.png)<!-- -->
+
+```r
 ggplot(demos,aes(
   x=pid7,
   fill=gender)) +
@@ -217,13 +624,23 @@ ggplot(demos,aes(
   scale_fill_colorblind(name='Gender') +
   theme(legend.position = 'bottom') +
   ggsave('fig/news_demographic_proportions_pid7.pdf')
+```
 
 ```
+## Warning: Ignoring unknown parameters: binwidth, bins, pad
+```
+
+```
+## Saving 7 x 5 in image
+```
+
+![](fig/unnamed-chunk-2-6.png)<!-- -->
 ```
 
 ## Distribution of browsing events by study period
 
-```{r enrollment_plots}
+
+```r
 visitdate_df = activity_tbl %>% 
   #inner_join(pid_tbl) %>%
   group_by(id, visit_start_date, stage) %>%
@@ -246,7 +663,15 @@ ggplot(visitdate_df, aes(
   labs(title = "Total domain dwell events observed during study by calendar date", subtitle = "Colored by enrollment period") +
   xlab('Date during study') + ylab('Total dwell events observed') +
   ggsave('fig/dwell_enrollment.pdf')
+```
 
+```
+## Saving 7 x 5 in image
+```
+
+![](fig/enrollment_plots-1.png)<!-- -->
+
+```r
 ggplot(startdate_df, aes(
   x=days_since_appearance,
   y=n,
@@ -259,7 +684,15 @@ ggplot(startdate_df, aes(
   labs(title = "Total domain dwell events observed during study by enrollment date", subtitle = "Colored by enrollment period") +
   xlab('Days since enrollment') + ylab('Total dwell events observed') +
   ggsave('fig/dwell_enrollment_stage.pdf')
+```
 
+```
+## Saving 7 x 5 in image
+```
+
+![](fig/enrollment_plots-2.png)<!-- -->
+
+```r
 ggplot(startdate_df, aes(
   x=days_since_appearance,
   y=log(n),
@@ -273,8 +706,15 @@ ggplot(startdate_df, aes(
   ggsave('fig/dwell_events_log_stage.pdf')
 ```
 
+```
+## Saving 7 x 5 in image
+```
+
+![](fig/enrollment_plots-3.png)<!-- -->
+
 ## General activity of enrollees over all study periods
-```{r daysactive_plots}
+
+```r
 ecdf_activedays_df = activity_tbl %>%
   #inner_join(pid_tbl) %>%
   group_by(visit_start_date, branch, id) %>%
@@ -290,7 +730,15 @@ ggplot(ecdf_activedays_df, aes(nn)) + geom_histogram(binwidth=1,position='dodge'
   ylab('') + xlab('Total days in study') +
   labs(title = "Observed distribution of participant active days", subtitle = "Over all study periods") +
   ggsave('fig/hist_activedays.pdf')
+```
 
+```
+## Saving 7 x 5 in image
+```
+
+![](fig/daysactive_plots-1.png)<!-- -->
+
+```r
 ggplot(ecdf_activedays_df, aes(nn)) + stat_ecdf(geom='step') + 
   theme_bw() +
   scale_y_continuous(labels=percent_format()) +
@@ -299,15 +747,28 @@ ggplot(ecdf_activedays_df, aes(nn)) + stat_ecdf(geom='step') +
   ggsave('fig/ecdf_active_days.pdf')
 ```
 
+```
+## Saving 7 x 5 in image
+```
+
+![](fig/daysactive_plots-2.png)<!-- -->
+
 ## Distribution of time of browsing
 
-```{r timeofday}
+
+```r
 hours = activity_tbl %>% 
   inner_join(pid_tbl) %>%
   mutate(timestamp=hour(from_unixtime(visit_start_time))) %>% 
   select(timestamp) %>% group_by(timestamp) %>% 
   count %>% collect
+```
 
+```
+## Joining, by = "pioneer_id"
+```
+
+```r
 hours$timestamp = hours(hours$timestamp)
 
 ggplot(hours, aes(x=timestamp, y=n)) + 
@@ -321,11 +782,18 @@ ggplot(hours, aes(x=timestamp, y=n)) +
   theme_bw() +
   ggsave('fig/dist_times.pdf')
 ```
+
+```
+## Saving 7 x 5 in image
+```
+
+![](fig/timeofday-1.png)<!-- -->
 ## Tables 
 
 
 ### Daily averages
-```{r}
+
+```r
 daily_pagevisits = activity_tbl %>%
   #inner_join(pid_tbl) %>%
   group_by(id,visit_start_date) %>%
@@ -435,12 +903,12 @@ digits(daily_active_session_tab) = 0
 
 print(daily_active_session_tab,file="tables.tex",append=T,table.placement = "h",booktabs=T,
  caption.placement="bottom", hline.after=seq(from=-1,to=nrow(daily_active_session_tab),by=1))
-
 ```
 
 ### Just pretreatment
 
-```{r}
+
+```r
 pretreatment_pagevisits = activity_tbl %>%
   #inner_join(pid_tbl) %>%
   filter(stage=='pretreatment') %>%
@@ -511,13 +979,12 @@ digits(pretreatment_activity_tab) = 1
 
 print(pretreatment_activity_tab,file="tables.tex",append=T,table.placement = "h", booktabs=T,
  caption.placement="bottom", hline.after=seq(from=-1,to=nrow(pretreatment_activity_tab),by=1))
-
 ```
 
 
 
-```{r}
 
+```r
 #browsing_daily = sdf_quantile(browsing, 'daily_active_time_s', probabilities=seq(0,1,by=0.0001))
 
 #prbs = c(.25,.5,.75,.99,.999,.9999)
@@ -565,7 +1032,8 @@ log_browsing_deciles = data.frame(
 log_browsing_deciles$rnames = prbs
 ```
 
-```{r}
+
+```r
 library(plyr)
 library(reshape2)
 plot = melt(log_browsing_deciles, id.vars=c('rnames'))
@@ -589,8 +1057,21 @@ ggplot(daily, aes(
   xlab('Percentile') + ylab('Log-seconds') +
   labs(title='ECDF of log-seconds of total daily browsing') +
 ggsave('fig/ecdf_daily.pdf')
+```
 
+```
+## Saving 7 x 5 in image
+```
 
+```
+## Warning: Width not defined. Set with `position_dodge(width = ?)`
+
+## Warning: Width not defined. Set with `position_dodge(width = ?)`
+```
+
+![](fig/unnamed-chunk-6-1.png)<!-- -->
+
+```r
 ggplot(session, aes(
   x=rnames,
   y=value,
@@ -604,9 +1085,19 @@ ggplot(session, aes(
   xlab('Percentile') +
   ylab('Log-seconds') +
   ggsave('fig/ecdf_session.pdf')
-  
+```
 
+```
+## Warning: Ignoring unknown parameters: binwidth, bins, pad
+```
 
+```
+## Saving 7 x 5 in image
+```
+
+![](fig/unnamed-chunk-6-2.png)<!-- -->
+
+```r
 #browsing_s = browsing %>% ungroup %>% select(id, daily_active_time_s, session_active_time_s) %>% mutate(cond='browsing')
 #sbrowsing_s = scored_browsing %>% ungroup %>% select(id, daily_active_time_s, session_active_time_s) %>% mutate(cond='sbrowsing')
 #plot = rbind(browsing_s, sbrowsing_s) %>% melt
@@ -616,10 +1107,10 @@ ggplot(session, aes(
 #   x=session_active_time_s,
 #   y=cond
 # ))+ geom_density_ridges()
-
 ```
 
-```{r}
+
+```r
 #daily_pid_scored_sessions = scored_activity_tbl %>%
 daily_pid_scored_sessions = scored_browsing %>% ungroup %>%
   inner_join(pid_tbl) %>%
@@ -627,7 +1118,13 @@ daily_pid_scored_sessions = scored_browsing %>% ungroup %>%
   filter(pid7 != 'O' & pid7 != 'N' & pid7 != 'I') %>% 
   group_by(pioneer_id, score, pid7) %>%
   collect
+```
 
+```
+## Joining, by = "pioneer_id"
+```
+
+```r
 ggplot(daily_pid_scored_sessions, aes(
  x=score,
  color=pid7)) + stat_density(position='dodge', geom='line', trim=T) +
@@ -640,7 +1137,21 @@ guides(
    color=guide_legend(label.position='bottom',title.position='top')) +
     scale_color_few(name='') +
 ggsave('fig/alignment_visit_density_pid7.pdf')
+```
 
+```
+## Saving 7 x 5 in image
+```
+
+```
+## Warning: Width not defined. Set with `position_dodge(width = ?)`
+
+## Warning: Width not defined. Set with `position_dodge(width = ?)`
+```
+
+![](fig/unnamed-chunk-7-1.png)<!-- -->
+
+```r
 ggplot(daily_pid_scored_sessions, aes(
  x=score,
  color=pid3)) + 
@@ -658,10 +1169,28 @@ ggplot(daily_pid_scored_sessions, aes(
         legend.key.width=unit(1, "lines"), 
         legend.key.height=unit(1, "lines"), 
         plot.margin = unit(c(5, 1, 0.5, 0.5), "lines"))
+```
+
+```
+## Warning: Width not defined. Set with `position_dodge(width = ?)`
+```
+
+![](fig/unnamed-chunk-7-2.png)<!-- -->
+
+```r
   ggsave('fig/alignment_visit_density_pid2.pdf')
 ```
+
+```
+## Saving 7 x 5 in image
+```
+
+```
+## Warning: Width not defined. Set with `position_dodge(width = ?)`
+```
 # Top websites, scored and unscored
-```{r}
+
+```r
 topsites_byvisits = browsing %>%
   filter(stage=='pretreatment') %>%
   #inner_join(pid_tbl) %>%
@@ -736,7 +1265,15 @@ ggplot(topsites, aes(
    scale_fill_viridis(discrete=T, option='plasma', name='') +
   scale_y_continuous(label=percent_format()) +
   ggsave('fig/props.pdf', height=6)
+```
 
+```
+## Saving 7 x 6 in image
+```
+
+![](fig/unnamed-chunk-8-1.png)<!-- -->
+
+```r
 scored_topsites_byvisits_melt = melt(scored_topsites_byvisits, id.vars='domain')
 scored_topsites_bytime_melt = melt(scored_topsites_bytime, id.vars='domain')
 
@@ -759,11 +1296,17 @@ ggplot(scored_topsites, aes(
     scale_fill_viridis(discrete=T, option='cividis', name='') +
   scale_y_continuous(label=percent_format()) +
   ggsave('fig/scored_props.pdf', height=6)
+```
 
 ```
+## Saving 7 x 6 in image
+```
+
+![](fig/unnamed-chunk-8-2.png)<!-- -->
 So clearly there are differences in looking at counts of visits to a place and the amount of time you spend
 are there differences by PID?
-```{r}
+
+```r
 top25_visits_tbl = sdf_copy_to(sc, data.frame(domain=topsites_byvisits[1:25,]$domain), 'top25_visits_tbl')
 top25_time_tbl = sdf_copy_to(sc, data.frame(domain=topsites_bytime[1:25,]$domain), 'top25_time_tbl')
 scored_top25_visits_tbl = sdf_copy_to(sc, data.frame(domain=scored_topsites_byvisits[1:25,]$domain), 'scored_top25_visits_tbl')
@@ -778,7 +1321,17 @@ pid_topsites_byvisits = browsing %>%
   tally %>%
   arrange(desc(n)) %>%
   collect
+```
 
+```
+## Joining, by = "domain"
+```
+
+```
+## Joining, by = "pioneer_id"
+```
+
+```r
 pid_topsites_bytime = browsing %>%
   inner_join(top25_time_tbl) %>%
   filter(stage=='pretreatment') %>%
@@ -788,7 +1341,14 @@ pid_topsites_bytime = browsing %>%
   summarise(seconds = sum(session_active_time_s, na.rm=T)) %>%
   arrange(desc(seconds)) %>%
   collect
+```
 
+```
+## Joining, by = "domain"
+## Joining, by = "pioneer_id"
+```
+
+```r
 pid_scored_topsites_byvisits = scored_browsing %>% 
   inner_join(scored_top25_visits_tbl) %>%
   filter(stage=='pretreatment') %>%
@@ -798,7 +1358,14 @@ pid_scored_topsites_byvisits = scored_browsing %>%
   tally %>%
   arrange(desc(n)) %>%
   collect
+```
 
+```
+## Joining, by = "domain"
+## Joining, by = "pioneer_id"
+```
+
+```r
 pid_scored_topsites_bytime = scored_browsing %>%
   inner_join(scored_top25_time_tbl) %>%
   filter(stage=='pretreatment') %>%
@@ -808,7 +1375,14 @@ pid_scored_topsites_bytime = scored_browsing %>%
   summarise(seconds = sum(session_active_time_s, na.rm=T)) %>%
   arrange(desc(seconds)) %>%
   collect
+```
 
+```
+## Joining, by = "domain"
+## Joining, by = "pioneer_id"
+```
+
+```r
 # TODO: Convert to table
 # ggplot(topsites_byvisits, aes(
 #   x=domain,
@@ -849,8 +1423,15 @@ ggplot(pid_topsites, aes(
     theme_bw() + theme(legend.position = 'bottom') +
   scale_fill_viridis(discrete=T, option='plasma', name='') +
   ggsave('fig/props_pid7.pdf', height=6)
+```
 
+```
+## Saving 7 x 6 in image
+```
 
+![](fig/unnamed-chunk-9-1.png)<!-- -->
+
+```r
 pid_scored_topsites_byvisits_melt = melt(pid_scored_topsites_byvisits, id.vars=c('domain','pid7'))
 pid_scored_topsites_bytime_melt = melt(pid_scored_topsites_bytime, id.vars=c('domain','pid7'))
 
@@ -873,14 +1454,18 @@ ggplot(pid_scored_topsites, aes(
     theme_bw() + theme(legend.position = 'bottom') +
   scale_fill_viridis(discrete=T,  option='cividis', name='') +
   ggsave('fig/props_scored_pid7.pdf', height=6)
-
+```
 
 ```
+## Saving 7 x 6 in image
+```
+
+![](fig/unnamed-chunk-9-2.png)<!-- -->
 
 # What about score instead of domain
 
-```{r}
 
+```r
 pid_scored_topsites_byvisits = scored_browsing %>% 
   #inner_join(scored_top25_visits_tbl) %>%
   filter(stage=='pretreatment') %>%
@@ -890,7 +1475,13 @@ pid_scored_topsites_byvisits = scored_browsing %>%
   tally %>%
   arrange(desc(score)) %>%
   collect
+```
 
+```
+## Joining, by = "pioneer_id"
+```
+
+```r
 pid_scored_topsites_bytime = scored_browsing %>%
   #inner_join(scored_top25_time_tbl) %>%
   filter(stage=='pretreatment') %>%
@@ -900,7 +1491,13 @@ pid_scored_topsites_bytime = scored_browsing %>%
   summarise(seconds = sum(session_active_time_s, na.rm=T)) %>%
   arrange(desc(score)) %>%
   collect
+```
 
+```
+## Joining, by = "pioneer_id"
+```
+
+```r
 pid_scored_topsites_byvisits_melt = melt(pid_scored_topsites_byvisits, id.vars=c('score','pid7'))
 pid_scored_topsites_bytime_melt = melt(pid_scored_topsites_bytime, id.vars=c('score','pid7'))
 
@@ -923,19 +1520,31 @@ ggplot(pid_scored_topsites, aes(
       legend.direction="horizontal") +
   scale_fill_viridis(name='') +
   ggsave('fig/props_scored_pid7_continuous.pdf', height=6)
+```
 
 ```
+## Saving 7 x 6 in image
+```
+
+![](fig/unnamed-chunk-10-1.png)<!-- -->
 
 
 # Daily average score of scored content visits by party ID
-```{r}
+
+```r
 daily_avg_score3 = scored_browsing %>% 
   inner_join(pid_tbl) %>%
   filter(pid7 != 'O' & pid7 != 'N' & pid7 != 'I') %>% 
   group_by(pioneer_id, days_since_appearance, pid3) %>%
   mutate(daily_avg_score =  mean(score, na.rm=T)) %>%
   collect
+```
 
+```
+## Joining, by = "pioneer_id"
+```
+
+```r
 ggplot(daily_avg_score3, aes(
   x=daily_avg_score,
   color=pid3)) + 
@@ -948,14 +1557,34 @@ theme_bw() + theme(legend.position = 'bottom') +
 guides(color=guide_legend(label.position='bottom',title.position='top')) +
   scale_color_fivethirtyeight(name='') +
 ggsave('fig/alignment_avgscore_density_pid3.pdf')
+```
 
+```
+## Saving 7 x 5 in image
+```
+
+```
+## Warning: Width not defined. Set with `position_dodge(width = ?)`
+
+## Warning: Width not defined. Set with `position_dodge(width = ?)`
+```
+
+![](fig/unnamed-chunk-11-1.png)<!-- -->
+
+```r
 daily_avg_score7 = scored_browsing %>% 
   inner_join(pid_tbl) %>%
   filter(pid7 != 'O' & pid7 != 'N' & pid7 != 'I') %>% 
   group_by(pioneer_id, days_since_appearance, pid7, stage) %>%
   mutate(daily_avg_score =  mean(score, na.rm=T)) %>%
   collect
+```
 
+```
+## Joining, by = "pioneer_id"
+```
+
+```r
 ggplot(daily_avg_score7, aes(
   x=daily_avg_score,
   color=pid7)) + 
@@ -968,12 +1597,24 @@ theme_bw() + theme(legend.position = 'bottom') +
 guides(color=guide_legend(label.position='bottom',title.position='top')) +
   scale_color_few(name='') +
   ggsave('fig/alignment_avgscore_density_pid7.pdf')
+```
 
 ```
+## Saving 7 x 5 in image
+```
+
+```
+## Warning: Width not defined. Set with `position_dodge(width = ?)`
+
+## Warning: Width not defined. Set with `position_dodge(width = ?)`
+```
+
+![](fig/unnamed-chunk-11-2.png)<!-- -->
 
 # Do we see an impact of treatment on likelihood to visit scored content?
 # TODO: Need to show distribution of pre and post treatment visits
-```{r}
+
+```r
 visits = scored_browsing %>% 
 #  inner_join(pid_tbl) %>%
   filter(stage!='treatment') %>%
@@ -989,14 +1630,33 @@ visits = scored_browsing %>%
   collect %>%
   distinct(pioneer_id, branch, prestage_avg_score, posttreatment, pretreatment)  %>%
   na.omit
+```
 
+```
+## Joining, by = "pioneer_id"
+```
+
+```r
 visits$branch = as.factor(visits$branch)
 visits_fit_main = glm(posttreatment ~ pretreatment + branch, data=visits)
 visits_fit_int = glm(posttreatment ~ pretreatment + branch*prestage_avg_score, data=visits)
 
 plot_model(visits_fit_main,rm.terms='pretreatment')
-sjp.int(visits_fit_int, show.ci=T)
+```
 
+![](fig/unnamed-chunk-12-1.png)<!-- -->
+
+```r
+sjp.int(visits_fit_int, show.ci=T)
+```
+
+```
+## `sjp.int()` will become deprecated in the future. Please use `plot_model()` instead.
+```
+
+![](fig/unnamed-chunk-12-2.png)<!-- -->
+
+```r
 out = stargazer(visits_fit_main, visits_fit_int,
           title='Regression predicting total scored site visits.',
           no.space=T,
@@ -1011,15 +1671,57 @@ out = stargazer(visits_fit_main, visits_fit_int,
           #  'Pretreatment * Stage average alignment',
           #  'Intercept'
           )#)
+```
+
+```
+## 
+## % Table created by stargazer v.5.2 by Marek Hlavac, Harvard University. E-mail: hlavac at fas.harvard.edu
+## % Date and time: Sun, May 20, 2018 - 08:12:43 PM
+## \begin{table}[!htbp] \centering 
+##   \caption{Regression predicting total scored site visits.} 
+##   \label{} 
+## \begin{tabular}{@{\extracolsep{5pt}}lcc} 
+## \\[-1.8ex]\hline 
+## \hline \\[-1.8ex] 
+##  & \multicolumn{2}{c}{\textit{Dependent variable:}} \\ 
+## \cline{2-3} 
+## \\[-1.8ex] & \multicolumn{2}{c}{Post-treatment visit count} \\ 
+## \\[-1.8ex] & (1) & (2)\\ 
+## \hline \\[-1.8ex] 
+##  pretreatment & 2.161$^{***}$ & 2.161$^{***}$ \\ 
+##   & (0.006) & (0.006) \\ 
+##   branchtreatment-bias & 0.815$^{***}$ & 0.779$^{***}$ \\ 
+##   & (0.160) & (0.201) \\ 
+##   branchtreatment-whois & 0.958$^{***}$ & 1.008$^{***}$ \\ 
+##   & (0.159) & (0.199) \\ 
+##   prestage\_avg\_score &  & 1.418$^{***}$ \\ 
+##   &  & (0.377) \\ 
+##   branchtreatment-bias:prestage\_avg\_score &  & 0.818 \\ 
+##   &  & (0.535) \\ 
+##   branchtreatment-whois:prestage\_avg\_score &  & 1.227$^{**}$ \\ 
+##   &  & (0.521) \\ 
+##   Constant & 5.117$^{***}$ & 5.544$^{***}$ \\ 
+##   & (0.124) & (0.151) \\ 
+##  \hline \\[-1.8ex] 
+## Observations & 8,801 & 8,801 \\ 
+## Log Likelihood & $-$28,406.460 & $-$28,404.760 \\ 
+## Akaike Inf. Crit. & 56,820.910 & 56,823.530 \\ 
+## \hline 
+## \hline \\[-1.8ex] 
+## \textit{Note:}  & \multicolumn{2}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+## \end{tabular} 
+## \end{table}
+```
+
+```r
 cat(out,sep='\n',file="tables.tex", append=T)
-
-
 ```
 
 # Do we see an impact of treatment on time spent on scored content
 # TODO: Need plots showing pre and post distribution
 
-```{r}
+
+```r
 active_time = scored_browsing %>% 
   filter(stage!='treatment') %>%
   #inner_join(pid_tbl) %>%
@@ -1032,13 +1734,32 @@ active_time = scored_browsing %>%
   collect %>%
   distinct(pioneer_id, branch, prestage_avg_score, posttreatment, pretreatment) %>%
   na.omit
+```
 
+```
+## Joining, by = "pioneer_id"
+```
+
+```r
 active_time$branch = as.factor(active_time$branch)
 active_time_fit_main = glm(posttreatment ~ pretreatment + branch, data=active_time)
 active_time_fit_int = glm(posttreatment ~ pretreatment + branch*prestage_avg_score, data=active_time)
 plot_model(active_time_fit_main, rm.terms='pretreatment')
-sjp.int(active_time_fit_int, show.ci=T)
+```
 
+![](fig/unnamed-chunk-13-1.png)<!-- -->
+
+```r
+sjp.int(active_time_fit_int, show.ci=T)
+```
+
+```
+## `sjp.int()` will become deprecated in the future. Please use `plot_model()` instead.
+```
+
+![](fig/unnamed-chunk-13-2.png)<!-- -->
+
+```r
 out = stargazer(active_time_fit_main, active_time_fit_int,
                 intercept.bottom=F,
                 title='Effect of doorhanger intervention on average post-treatment scored active time (in seconds)',
@@ -1055,13 +1776,55 @@ out = stargazer(active_time_fit_main, active_time_fit_int,
                 #   'Pretreatment * daily average score',
                 #   'Intercept')
           )
+```
+
+```
+## 
+## % Table created by stargazer v.5.2 by Marek Hlavac, Harvard University. E-mail: hlavac at fas.harvard.edu
+## % Date and time: Sun, May 20, 2018 - 08:13:16 PM
+## \begin{table}[!htbp] \centering 
+##   \caption{Effect of doorhanger intervention on average post-treatment scored active time (in seconds)} 
+##   \label{} 
+## \begin{tabular}{@{\extracolsep{5pt}}lcc} 
+## \\[-1.8ex]\hline 
+## \hline \\[-1.8ex] 
+##  & \multicolumn{2}{c}{\textit{Dependent variable:}} \\ 
+## \cline{2-3} 
+## \\[-1.8ex] & \multicolumn{2}{c}{Post-treatment daily scored active time} \\ 
+## \\[-1.8ex] & (1) & (2)\\ 
+## \hline \\[-1.8ex] 
+##  pretreatment & 0.999$^{***}$ & 0.999$^{***}$ \\ 
+##   & (0.0003) & (0.0003) \\ 
+##   branchtreatment-bias & 0.008 & 0.061 \\ 
+##   & (1.944) & (2.450) \\ 
+##   branchtreatment-whois & 0.006 & 0.047 \\ 
+##   & (1.927) & (2.427) \\ 
+##   prestage\_avg\_score &  & 0.00002 \\ 
+##   &  & (4.582) \\ 
+##   branchtreatment-bias:prestage\_avg\_score &  & 6,134.767$^{***}$ \\ 
+##   &  & (6.539) \\ 
+##   branchtreatment-whois:prestage\_avg\_score &  & 6,755.831$^{***}$ \\ 
+##   &  & (6.354) \\ 
+##  \hline \\[-1.8ex] 
+## Observations & 8,527 & 8,527 \\ 
+## Log Likelihood & $-$48,664.510 & $-$48,661.650 \\ 
+## Akaike Inf. Crit. & 97,337.020 & 97,337.310 \\ 
+## \hline 
+## \hline \\[-1.8ex] 
+## \textit{Note:}  & \multicolumn{2}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+## \end{tabular} 
+## \end{table}
+```
+
+```r
 cat(out,sep='\n',file="tables.tex", append=T)
 ```
 Generally suggests that the treatment was somewhat successful at reducing consumption of content over all scored content (negative \beta^2 on treatment)
 
 
 # Is there an effect on the ideological alignment of news consumption measured by average daily alignment score changes?
-```{r}
+
+```r
 avg_score = scored_browsing %>% 
   filter(stage != 'treatment') %>%
   #inner_join(pid_tbl) %>%
@@ -1080,14 +1843,33 @@ avg_score = scored_browsing %>%
   collect %>%
   distinct(pioneer_id, branch, prestage_avg_score, posttreatment, pretreatment) %>%
   na.omit
+```
 
+```
+## Joining, by = "pioneer_id"
+```
+
+```r
 avg_score$branch = as.factor(avg_score$branch)
 avg_score_main = glm(posttreatment ~ pretreatment + branch, data=avg_score)
 avg_score_int = glm(posttreatment ~ pretreatment + branch*prestage_avg_score, data=avg_score)
 
 plot_model(avg_score_main, rm.terms='pretreatment')
-sjp.int(avg_score_int, show.ci=T)
+```
 
+![](fig/unnamed-chunk-14-1.png)<!-- -->
+
+```r
+sjp.int(avg_score_int, show.ci=T)
+```
+
+```
+## `sjp.int()` will become deprecated in the future. Please use `plot_model()` instead.
+```
+
+![](fig/unnamed-chunk-14-2.png)<!-- -->
+
+```r
 out = stargazer(avg_score_main, avg_score_int,
                 intercept.bottom=F,
                 title='Effect of doorhanger intervention on daily average post-treatment score',
@@ -1104,6 +1886,47 @@ out = stargazer(avg_score_main, avg_score_int,
                 #   'Pretreatment * daily average score',
                 #   'Intercept')
           )
+```
+
+```
+## 
+## % Table created by stargazer v.5.2 by Marek Hlavac, Harvard University. E-mail: hlavac at fas.harvard.edu
+## % Date and time: Sun, May 20, 2018 - 08:13:40 PM
+## \begin{table}[!htbp] \centering 
+##   \caption{Effect of doorhanger intervention on daily average post-treatment score} 
+##   \label{} 
+## \begin{tabular}{@{\extracolsep{5pt}}lcc} 
+## \\[-1.8ex]\hline 
+## \hline \\[-1.8ex] 
+##  & \multicolumn{2}{c}{\textit{Dependent variable:}} \\ 
+## \cline{2-3} 
+## \\[-1.8ex] & \multicolumn{2}{c}{Post-treatment daily average score} \\ 
+## \\[-1.8ex] & (1) & (2)\\ 
+## \hline \\[-1.8ex] 
+##  pretreatment & 0.662$^{***}$ & $-$1.419$^{**}$ \\ 
+##   & (0.008) & (0.585) \\ 
+##   branchtreatment-bias & 0.003 & 0.0004 \\ 
+##   & (0.006) & (0.007) \\ 
+##   branchtreatment-whois & 0.007 & 0.015$^{**}$ \\ 
+##   & (0.006) & (0.007) \\ 
+##   prestage\_avg\_score &  & 2.074$^{***}$ \\ 
+##   &  & (0.586) \\ 
+##   branchtreatment-bias:prestage\_avg\_score &  & $-$0.009 \\ 
+##   &  & (0.020) \\ 
+##   branchtreatment-whois:prestage\_avg\_score &  & 0.033$^{*}$ \\ 
+##   &  & (0.019) \\ 
+##  \hline \\[-1.8ex] 
+## Observations & 8,801 & 8,801 \\ 
+## Log Likelihood & 611.067 & 620.171 \\ 
+## Akaike Inf. Crit. & $-$1,214.133 & $-$1,226.341 \\ 
+## \hline 
+## \hline \\[-1.8ex] 
+## \textit{Note:}  & \multicolumn{2}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+## \end{tabular} 
+## \end{table}
+```
+
+```r
 cat(out,sep='\n',file="tables.tex", append=T)
 ```
 #  ideology * branch * abs(score), ideology is defined as mean(abs(score)*time) over the pretreatment period -->
