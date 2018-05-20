@@ -128,27 +128,27 @@ wave2 = wave2[!is.na(names(wave2))]
 
 
 # recoding
-wave1$education=recode(wave1$education, 
-                'Four year college degree/bachelor’s degree '=3,
-                'High school graduate or GED (includes technical/vocational training that doesn’t count towards college credit)'=1,
-                'High school incomplete or less' = 0,
-                'Postgraduate or professional degree, including master’s, doctorate, medical or law degree' =5,
-                'Some college (some community college, associate’s degree)' =2,
-                'Some postgraduate or professional schooling, no postgraduate degree'=4,
-       .default = -1)
+# wave1$education=recode(wave1$education, 
+#                 'Four year college degree/bachelor’s degree '=3,
+#                 'High school graduate or GED (includes technical/vocational training that doesn’t count towards college credit)'=1,
+#                 'High school incomplete or less' = 0,
+#                 'Postgraduate or professional degree, including master’s, doctorate, medical or law degree' =5,
+#                 'Some college (some community college, associate’s degree)' =2,
+#                 'Some postgraduate or professional schooling, no postgraduate degree'=4,
+#        .default = -1)
 
 wave1 = unite_(data=wave1, col='pid4', c('pidleaner','pid3')) %>% mutate(pid4=str_remove(pid4, 'NA_'))
 wave1 = unite_(data=wave1, col='pidfull', c('piddem','pid4')) %>% mutate(pidfull=str_remove(pidfull, 'NA_'))
 wave1 = unite_(data=wave1, col='pidfull', c('pidrep','pidfull')) %>% mutate(pidfull=str_remove(pidfull, 'NA_'))
 
-wave1$education=recode(wave1$education, 
-                       'Four year college degree/bachelor’s degree '=3,
-                       'High school graduate or GED (includes technical/vocational training that doesn’t count towards college credit)'=1,
-                       'High school incomplete or less' = 0,
-                       'Postgraduate or professional degree, including master’s, doctorate, medical or law degree' =5,
-                       'Some college (some community college, associate’s degree)' =2,
-                       'Some postgraduate or professional schooling, no postgraduate degree'=4,
-                       .default = -1)
+wave1$education=recode(wave1$education,
+                      'Four year college degree/bachelor’s degree '="Undergraduate",
+                      'High school graduate or GED (includes technical/vocational training that doesn’t count towards college credit)'="High school",
+                      'High school incomplete or less' = "Less than high school",
+                      'Postgraduate or professional degree, including master’s, doctorate, medical or law degree' ="Completed graduate",
+                      'Some college (some community college, associate’s degree)' ="Some undergraduate",
+                      'Some postgraduate or professional schooling, no postgraduate degree'="Some graduate",
+                      .default = NA_character_)
 wave1$pid3=recode(wave1$pidfull,
                   'Democrat'='D',
                   'Democratic_Independent'='D',
@@ -162,7 +162,8 @@ wave1$pid3=recode(wave1$pidfull,
                   'Republican_Independent'='R',
                   'Republican_Other'='R',
                   'Strong Democrat_Democrat'='D',
-                  'Strong Republican_Republican'='R')
+                  'Strong Republican_Republican'='R',
+                  .default = NA_character_)
 wave1$pid7=recode(wave1$pidfull,
                   'Democrat'='D',
                   'Democratic_Independent'='D',
@@ -176,7 +177,40 @@ wave1$pid7=recode(wave1$pidfull,
                   'Republican_Independent'='R',
                   'Republican_Other'='R',
                   'Strong Democrat_Democrat'='SD',
-                  'Strong Republican_Republican'='SR')
+                  'Strong Republican_Republican'='SR',
+                  .default = NA_character_)
+
+wave1$pid2=recode(wave1$pidfull,
+                  'Democrat'=1,
+                  'Democratic_Independent'=1,
+                  'Democratic_Other'=1,
+                  'I decline to state'=NULL,
+                  'Independent'=NULL,
+                  'Not very strong Democrat_Democrat'=1,
+                  'Not very strong Republican_Republican'=0,
+                  'Other'=NULL,
+                  'Republican'=0,
+                  'Republican_Independent'=0,
+                  'Republican_Other'=0,
+                  'Strong Democrat_Democrat'=1,
+                  'Strong Republican_Republican'=0)
+
+
+wave1$pidstr=recode(wave1$pidfull,
+                  'Democrat'=0,
+                  'Democratic_Independent'=0,
+                  'Democratic_Other'=0,
+                  'I decline to state'=NULL,
+                  'Independent'=NULL,
+                  'Not very strong Demcrat_Democrat'=-1,
+                  'Not very strong Republican_Republican'=-1,
+                  'Other'=NULL,
+                  'Republican'=0,
+                  'Republican_Independent'=0,
+                  'Republican_Other'=0,
+                  'Strong Democrat_Democrat'=1,
+                  'Strong Republican_Republican'=1,
+                  .default = NULL)
 
 
 wave1_subset = wave1[,names(wave1) %in% names(wave2)]
@@ -214,10 +248,11 @@ full_df=full_df %>%
 completes = full_df %>% group_by(pioneer_id) %>% summarize(n = n()) %>% filter(n>1) %>% select(pioneer_id)
 branches = activity_tbl %>% select(pioneer_id, branch) %>% group_by(pioneer_id) %>% filter(row_number(branch)==1)
 
-pid = select(wave1, pioneer_id, pid3)
-pid = select(wave1, pioneer_id, pid7)
-names(pid) = c('pioneer_id','pid')
-sdf_copy_to(sc, pid, overwrite=T)
+#pid = select(wave1, pioneer_id, pid3)
+#pid = select(wave1, pioneer_id, pid7)
+pid = select(wave1, pioneer_id, pid2, pid3, pid7, pidstr)
+names(pid) = c('pioneer_id','pidD', 'pid3','pid7','pidstr')
+#sdf_copy_to(sc, pid, overwrite=T)
 restricted_df = filter(full_df, pioneer_id %in% completes$pioneer_id) %>% full_join(pid, by='pioneer_id')
 completes2 = dwell_tbl %>% group_by(pioneer_id) %>% summarise(n=n_distinct(pioneer_id)) %>% select(pioneer_id) %>% collect
 valids = data.frame(pioneer_id=wave1[wave1$pioneer_id %in% completes2$pioneer_id,]$pioneer_id)

@@ -4,6 +4,7 @@
 # install.packages("pander")
 # install.packages('ggeffects')
 library(lubridate)
+library(plyr)
 library(sparklyr)
 library(dplyr)
 library(ggplot2)
@@ -20,6 +21,7 @@ library(pander)
 library(ggeffects)
 library(xtable)
 library(stargazer)
+library(viridis)
 
 spark_disconnect_all()
 rm(list=ls(all=T))
@@ -57,6 +59,12 @@ dwell_stages_tbl = dwell_clean_tbl %>%
 
 # compute active time (where dwell = active + idle time)
 activity_tbl = dwell_stages_tbl %>% 
+  filter(
+    domain != 'pch.com' & 
+    domain != 'fbsbx.com' & 
+    domain != 'flasktalking.com' & 
+    domain != 'pch.com' &
+    domain != 'localhost') %>%
   mutate(total_active_time = total_dwell_time - total_idle_time) %>%
   filter(total_active_time < 5000) %>% # remove clients with active time greater than 99.999%
   compute('activity_tbl')
@@ -74,7 +82,13 @@ scored_domains_tbl = sdf_copy_to(sc,scored_domains, overwrite = T)
 
 scored_activity_tbl = activity_tbl %>%
   inner_join(scored_domains_tbl) %>%
-  filter(domain != 'youtube.com' & domain != 'google.com' & domain!= 'facebook.com') %>% 
+  filter(
+    domain != 'youtube.com' & 
+    domain != 'google.com' & 
+    domain!= 'facebook.com' & 
+    domain!='reddit.com' &
+    domain!='twitter.com' & 
+       domain!='amazon.com') %>% 
   mutate(total_active_time = total_dwell_time - total_idle_time,
          scored_active_time = score * total_active_time) %>%
   filter(total_active_time < 5000) %>% # remove clients with active time greater than 99.999%
