@@ -220,6 +220,8 @@ ggplot(demos,aes(
 
 ```
 ```
+## Attitudes and opinions
+
 
 ## Distribution of browsing events by study period
 
@@ -629,16 +631,22 @@ daily_pid_scored_sessions = scored_browsing %>% ungroup %>%
   collect
 
 ggplot(daily_pid_scored_sessions, aes(
- x=score,
- color=pid7)) + stat_density(position='dodge', geom='line', trim=T) +
-labs(title='Density of site visits along alignment scores',
-     subtitle='By self-reported party identification per site visit per day',
-      color='') +
- xlab('Alignment score') + ylab('Density of dwell events') +
-theme_bw() + theme(legend.position = 'bottom') +
-guides(
-   color=guide_legend(label.position='bottom',title.position='top')) +
-    scale_color_few(name='') +
+  x=score,
+  color=pid7)) + 
+stat_density(position='dodge', geom='line', trim=T) +
+labs(title='',
+     subtitle='',
+     color='') +
+xlab('Alignment score') + ylab('Density of dwell events') +
+theme_bw() + 
+theme(legend.position=c(1,1), 
+      legend.direction="horizontal",
+      legend.justification=c(1, 0), 
+      legend.key.width=unit(1, "lines"), 
+      legend.key.height=unit(1, "lines"), 
+      plot.margin = unit(c(5, 1, 0.5, 0.5), "lines")) +
+guides(color=guide_legend(label.position='bottom',title.position='top')) +
+scale_color_few(name='') +
 ggsave('fig/alignment_visit_density_pid7.pdf')
 
 ggplot(daily_pid_scored_sessions, aes(
@@ -646,18 +654,18 @@ ggplot(daily_pid_scored_sessions, aes(
  color=pid3)) + 
   stat_density(position='dodge', geom='line', trim=T) +
   labs(
-    title='Density of site visits along alignment scores',
-    subtitle='By self-reported party identification') +
+    title='',
+    subtitle='') +
   xlab('Alignment score') + ylab('Density of dwell events') +
   guides(color=guide_legend(label.position='bottom',title.position='top')) +
   scale_color_fivethirtyeight(name='') +
   theme_bw() + 
-  theme(legend.position=c(1,1),
+  theme(legend.position=c(1,1), 
         legend.direction="horizontal",
         legend.justification=c(1, 0), 
         legend.key.width=unit(1, "lines"), 
         legend.key.height=unit(1, "lines"), 
-        plot.margin = unit(c(5, 1, 0.5, 0.5), "lines"))
+        plot.margin = unit(c(5, 1, 0.5, 0.5), "lines")) +
   ggsave('fig/alignment_visit_density_pid2.pdf')
 ```
 # Top websites, scored and unscored
@@ -728,8 +736,8 @@ ggplot(topsites, aes(
   fill=domain)) + 
   geom_bar(position='fill',stat='identity') +
   theme(legend.position='bottom') +
-  labs(title='Proportion of visits counts and active time in seconds spent',
-     subtitle='Top 25 overall domains',
+  labs(title='',
+     subtitle='',
       color='') +
    xlab('') + ylab('') +
     theme_bw() + theme(legend.position = 'right') +
@@ -752,11 +760,11 @@ ggplot(scored_topsites, aes(
   y=value,
   fill=domain)) + geom_bar(position='fill',stat='identity') +
   theme(legend.position='bottom') +
-  labs(title='Proportion of visits counts and active time in seconds spent',
-     subtitle='Top 25 scored domains') +
+  labs(title='',
+     subtitle='') +
    xlab('') + ylab('') +
-    theme_bw() +
-    scale_fill_viridis(discrete=T, option='cividis', name='') +
+  theme_bw() +
+  scale_fill_viridis(discrete=T, option='cividis', name='') +
   scale_y_continuous(label=percent_format()) +
   ggsave('fig/scored_props.pdf', height=6)
 
@@ -842,8 +850,8 @@ ggplot(pid_topsites, aes(
 )) + geom_bar(position='fill',stat='identity')+
   facet_grid(~pid7) +
   theme(legend.position='bottom') +
-  labs(title='Proportion of visits and active time spent on top 25 overall domains',
-     subtitle='By self-reported party identification',
+  labs(title='',
+     subtitle='',
       color='') +
    xlab('') + ylab('') +
     theme_bw() + theme(legend.position = 'bottom') +
@@ -866,8 +874,8 @@ ggplot(pid_scored_topsites, aes(
 )) + geom_bar(position='fill',stat='identity')+
   facet_grid(~pid7) +
   theme(legend.position='bottom') +
-  labs(title='Proportion of visits and active time spent on top 25 scored domains',
-     subtitle='By self-reported party identification',
+  labs(title='',
+     subtitle='',
       color='') +
    xlab('') + ylab('') +
     theme_bw() + theme(legend.position = 'bottom') +
@@ -916,7 +924,7 @@ ggplot(pid_scored_topsites, aes(
   geom_bar(position='fill',stat='identity')+
   facet_grid(~pid7) +
   theme(legend.position='bottom') +
-  labs(title='Proportion of visit counts and active time in seconds') +
+  labs(title='') +
   xlab('') + ylab('') +
   theme_bw() + theme(
       legend.position = 'bottom',
@@ -940,13 +948,19 @@ ggplot(daily_avg_score3, aes(
   x=daily_avg_score,
   color=pid3)) + 
   stat_density(position='dodge', geom='line', trim=T) +
-labs(title='Density of daily average alignment score',
-     subtitle='By self-reported party identification',
+labs(title='',
+     subtitle='',
     color='') +
- xlab('Daily average alignment score') + ylab('') +
-theme_bw() + theme(legend.position = 'bottom') +
+xlab('Daily average alignment score') + ylab('') +
 guides(color=guide_legend(label.position='bottom',title.position='top')) +
-  scale_color_fivethirtyeight(name='') +
+scale_color_fivethirtyeight(name='') +
+theme_bw() + 
+theme(legend.position=c(1,1), # TODO: PUT THIS EVERYWHERE
+      legend.direction="horizontal",
+      legend.justification=c(1, 0), 
+      legend.key.width=unit(1, "lines"), 
+      legend.key.height=unit(1, "lines"), 
+      plot.margin = unit(c(5, 1, 0.5, 0.5), "lines")) +
 ggsave('fig/alignment_avgscore_density_pid3.pdf')
 
 daily_avg_score7 = scored_browsing %>% 
@@ -959,15 +973,21 @@ daily_avg_score7 = scored_browsing %>%
 ggplot(daily_avg_score7, aes(
   x=daily_avg_score,
   color=pid7)) + 
-  stat_density(position='dodge', geom='line', trim=T) +
-labs(title='Density of daily average alignment score',
-     subtitle='By self-reported party identification',
+stat_density(position='dodge', geom='line', trim=T) +
+labs(title='',
+     subtitle='',
     color='') +
- xlab('Average respondent alignment score over all days') + ylab('') +
-theme_bw() + theme(legend.position = 'bottom') +
+xlab('Average respondent alignment score over all days') + ylab('') +
+theme_bw() + 
+theme(legend.position=c(1,1), # TODO: PUT THIS EVERYWHERE
+      legend.direction="horizontal",
+      legend.justification=c(1, 0), 
+      legend.key.width=unit(1, "lines"), 
+      legend.key.height=unit(1, "lines"), 
+      plot.margin = unit(c(5, 1, 0.5, 0.5), "lines")) +
 guides(color=guide_legend(label.position='bottom',title.position='top')) +
-  scale_color_few(name='') +
-  ggsave('fig/alignment_avgscore_density_pid7.pdf')
+scale_color_few(name='') +
+ggsave('fig/alignment_avgscore_density_pid7.pdf')
 
 ```
 
@@ -994,23 +1014,42 @@ visits$branch = as.factor(visits$branch)
 visits_fit_main = glm(posttreatment ~ pretreatment + branch, data=visits)
 visits_fit_int = glm(posttreatment ~ pretreatment + branch*prestage_avg_score, data=visits)
 
-plot_model(visits_fit_main,rm.terms='pretreatment')
-sjp.int(visits_fit_int, show.ci=T)
+plot_model(visits_fit_main,rm.terms='pretreatment', color='gs', vline.color='black') +
+  theme_bw() + guides(color=FALSE)+
+  xlab('') +
+  ylab('') + 
+  scale_x_discrete(labels=c('Treatment','Placebo')) +
+  ggtitle('') +
+  ggsave('fig/visits_maineff.pdf', scale=.8)
+
+#sjp.int(visits_fit_int, show.ci=T)
+
+plot_model(visits_fit_int, type='eff', terms=c('prestage_avg_score', 'branch')) +
+  theme_bw() + theme(legend.position='bottom') + #guides(color=FALSE)+
+  xlab('') +
+  ylab('') + 
+  labs(title='',color='') +
+  scale_color_discrete(labels=c('Control','Treatment','Placebo')) +
+  ggsave('fig/visits_condeff.pdf', scale=.8)
 
 out = stargazer(visits_fit_main, visits_fit_int,
-          title='Regression predicting total scored site visits.',
+          title='Regression predicting total scored site visits',
           no.space=T,
           dep.var.labels=c('Post-treatment visit count'),
-          apply.coef=exp#,
-          #intercept.top=T,
-          #covariate.labels=c(
-          #  'Pre-treatment visit count',
-          #  'Stage average alignment',
-          #  'Treatment (Alignment)',
-          #  'Placebo (WHOIS)',
-          #  'Pretreatment * Stage average alignment',
-          #  'Intercept'
-          )#)
+          #apply.coef=exp,
+          intercept.bottom=F,
+          ci=T,
+          notes.append=T,
+          notes = c('Base case is the control condition','Table reports 95% confidence intervals'),
+          covariate.labels=c(
+            'Constant',
+            'Pre-treatment visit count',
+            'Treatment (Alignment)',
+            'Placebo (WHOIS)',
+            'Pre-treatment average alignment',
+            'Treatment * Pre-treatment average alignment',
+            'Placebo * Pre-treatment average alignment'
+          ))
 cat(out,sep='\n',file="tables.tex", append=T)
 
 
@@ -1027,8 +1066,8 @@ active_time = scored_browsing %>%
   inner_join(pretreatment_avg_score) %>%
   sdf_pivot(pioneer_id + branch + prestage_avg_score + daily_active_time_s ~ stage) %>%
   group_by(pioneer_id) %>%
-  mutate(pretreatment = sum((pretreatment/pretreatment) * daily_active_time_s, na.rm=T),
-         posttreatment = sum((posttreatment/pretreatment) * daily_active_time_s, na.rm=T)) %>%
+  mutate(pretreatment = sum((pretreatment/pretreatment) * log1p(daily_active_time_s), na.rm=T),
+         posttreatment = sum((posttreatment/pretreatment) * log1p(daily_active_time_s), na.rm=T)) %>%
   collect %>%
   distinct(pioneer_id, branch, prestage_avg_score, posttreatment, pretreatment) %>%
   na.omit
@@ -1036,25 +1075,43 @@ active_time = scored_browsing %>%
 active_time$branch = as.factor(active_time$branch)
 active_time_fit_main = glm(posttreatment ~ pretreatment + branch, data=active_time)
 active_time_fit_int = glm(posttreatment ~ pretreatment + branch*prestage_avg_score, data=active_time)
-plot_model(active_time_fit_main, rm.terms='pretreatment')
-sjp.int(active_time_fit_int, show.ci=T)
+
+plot_model(active_time_fit_main,rm.terms='pretreatment', color='gs', vline.color='black') +
+  theme_bw() + guides(color=FALSE)+
+  xlab('') +
+  ylab('') + 
+  scale_x_discrete(labels=c('Treatment','Placebo')) +
+  ggtitle('') +
+  ggsave('fig/active_time_maineff.pdf', scale=.8)
+
+#sjp.int(visits_fit_int, show.ci=T)
+
+plot_model(active_time_fit_int, type='eff', terms=c('prestage_avg_score', 'branch')) +
+  theme_bw() + theme(legend.position='bottom') + #guides(color=FALSE)+
+  xlab('') +
+  ylab('') + 
+  labs(title='',color='') +
+  scale_color_discrete(labels=c('Control','Treatment','Placebo')) +
+  ggsave('fig/active_time_condeff.pdf', scale=.8)
 
 out = stargazer(active_time_fit_main, active_time_fit_int,
                 intercept.bottom=F,
-                title='Effect of doorhanger intervention on average post-treatment scored active time (in seconds)',
+                title='Effect of interventions on average post-treatment scored active time (in seconds).',
                 no.space=T,
                 dep.var.labels=c('Post-treatment daily scored active time'),
                 apply.coef=exp,
-                omit=c('Constant')#,
-                # covariate.labels=c(
-                #   'Pre-treatment daily scored active time',
-                #   'Stage average alignment',
-                #   'Treatment (Alignment)',
-                #   'Placebo (WHOIS)',
-                #   'Pretreatment * log daily scored active time',
-                #   'Pretreatment * daily average score',
-                #   'Intercept')
-          )
+                ci=T,
+                notes.append=T,
+                notes = c('Base case is the control condition','Table reports 95% confidence intervals'),
+
+                covariate.labels=c(
+                'Constant',
+                'Pre-treatment average alignment',
+                'Treatment (Alignment)',
+                'Placebo (WHOIS)',
+                'Stage average alignment',
+                'Treatment * Pre-treatment average alignment',
+                'Placebo * Pre-treatment average alignment'))
 cat(out,sep='\n',file="tables.tex", append=T)
 ```
 Generally suggests that the treatment was somewhat successful at reducing consumption of content over all scored content (negative \beta^2 on treatment)
@@ -1085,25 +1142,42 @@ avg_score$branch = as.factor(avg_score$branch)
 avg_score_main = glm(posttreatment ~ pretreatment + branch, data=avg_score)
 avg_score_int = glm(posttreatment ~ pretreatment + branch*prestage_avg_score, data=avg_score)
 
-plot_model(avg_score_main, rm.terms='pretreatment')
-sjp.int(avg_score_int, show.ci=T)
+plot_model(avg_score_main, rm.terms='pretreatment', color='gs', vline.color='black') +
+  theme_bw() + guides(color=FALSE)+
+  xlab('') +
+  ylab('') + 
+  scale_x_discrete(labels=c('Treatment','Placebo')) +
+  ggtitle('') +
+  ggsave('fig/avg_score_maineff.pdf', scale=.8)
+  
+#sjp.int(avg_score_int, show.ci=T)
+
+plot_model(avg_score_int, type='eff', terms=c('prestage_avg_score', 'branch')) +
+  theme_bw() + theme(legend.position='bottom') + #guides(color=FALSE)+
+  xlab('') +
+  ylab('') + 
+  labs(title='',color='') +
+  scale_color_discrete(labels=c('Control','Treatment','Placebo')) +
+  ggsave('fig/avg_score_condeff.pdf', scale=.8)
+
 
 out = stargazer(avg_score_main, avg_score_int,
                 intercept.bottom=F,
-                title='Effect of doorhanger intervention on daily average post-treatment score',
+                title='Effect of doorhanger intervention on average post-treatment score.',
                 no.space=T,
                 dep.var.labels=c('Post-treatment daily average score'),
-                #apply.coef=exp,
-                omit=c('Constant')#,
-                # covariate.labels=c(
-                #   'Pre-treatment daily scored active time',
-                #   'Stage average alignment',
-                #   'Treatment (Alignment)',
-                #   'Placebo (WHOIS)',
-                #   'Pretreatment * log daily scored active time',
-                #   'Pretreatment * daily average score',
-                #   'Intercept')
-          )
+                ci=T,
+                notes.append=T,
+                notes = c('Base case is the control condition','Table reports 95% confidence intervals'),
+                covariate.labels=c(
+                'Constant',
+                'Pre-treatment average alignment',
+                'Treatment (Alignment)',
+                'Placebo (WHOIS)',
+                'Stage average alignment',
+                'Treatment * Pre-treatment average alignment',
+                'Placebo * Pre-treatment average alignment'))
+
 cat(out,sep='\n',file="tables.tex", append=T)
 ```
 #  ideology * branch * abs(score), ideology is defined as mean(abs(score)*time) over the pretreatment period -->
